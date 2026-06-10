@@ -6,8 +6,8 @@
   'use strict';
 
   // ─── State ───
-  const STORAGE_KEY = 'financaspro_data';
-  const PIN_KEY = 'financaspro_pin';
+  const STORAGE_KEY = 'corefinance_data';
+  const PIN_KEY = 'corefinance_pin';
   let state = loadState();
   let currentMonth = new Date().getMonth();
   let currentYear = new Date().getFullYear();
@@ -1062,7 +1062,7 @@
   // ─── PIN Security ───
   async function hashPin(pin) {
     const encoder = new TextEncoder();
-    const data = encoder.encode(pin + 'financaspro_salt_2024');
+    const data = encoder.encode(pin + 'corefinance_salt_2026');
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
