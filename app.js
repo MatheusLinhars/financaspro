@@ -357,6 +357,7 @@
   btnCancelDespesa.addEventListener('click', () => {
     formDespesa.classList.add('hidden');
     despesaForm.reset();
+    document.getElementById('parcelasGroup').classList.add('hidden');
   });
 
   function updatePagamentoOptions() {
@@ -374,16 +375,36 @@
       despesaPagamento.appendChild(opt);
     });
     if (currentVal) despesaPagamento.value = currentVal;
+
+    // Show/hide parcelas based on current value
+    toggleParcelasGroup(despesaPagamento.value);
   }
+
+  function toggleParcelasGroup(pagValue) {
+    const parcelasGroup = document.getElementById('parcelasGroup');
+    if (pagValue && pagValue.startsWith('Crédito')) {
+      parcelasGroup.classList.remove('hidden');
+    } else {
+      parcelasGroup.classList.add('hidden');
+      document.getElementById('despesaParcelas').value = '1';
+    }
+  }
+
+  despesaPagamento.addEventListener('change', () => {
+    toggleParcelasGroup(despesaPagamento.value);
+  });
 
   despesaForm.addEventListener('submit', (e) => {
     e.preventDefault();
+    const parcelas = parseInt(document.getElementById('despesaParcelas').value) || 1;
+    const isParceled = despesaPagamento.value.startsWith('Crédito') && parcelas > 1;
     const data = {
       id: despesaEditId.value || generateId(),
       valor: parseFloat(document.getElementById('despesaValor').value),
       descricao: document.getElementById('despesaDescricao').value.trim(),
       categoria: document.getElementById('despesaCategoria').value,
       pagamento: despesaPagamento.value,
+      parcelas: isParceled ? parcelas : 1,
       data: document.getElementById('despesaData').value,
     };
 
@@ -399,6 +420,7 @@
     saveState();
     formDespesa.classList.add('hidden');
     despesaForm.reset();
+    document.getElementById('parcelasGroup').classList.add('hidden');
     refreshAll();
   });
 
@@ -425,12 +447,14 @@
       else if (d.pagamento.startsWith('Crédito')) pagClass = 'badge-credito';
       else if (d.pagamento === 'Vale Refeição') pagClass = 'badge-vale';
 
+      const parcelas = d.parcelas && d.parcelas > 1 ? ` <span class="badge-parcelas">${d.parcelas}x</span>` : '';
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${formatDate(d.data)}</td>
         <td>${d.descricao}</td>
-        <td><span class="badge ${catClass}">${d.categoria}</span></td>
-        <td><span class="badge ${pagClass}">${d.pagamento}</span></td>
+        <td class="hide-xs"><span class="badge ${catClass}">${d.categoria}</span></td>
+        <td><span class="badge ${pagClass}">${d.pagamento}</span>${parcelas}</td>
         <td class="text-right value-negative">${formatCurrency(d.valor)}</td>
         <td class="text-center">
           <button class="btn-icon edit" data-id="${d.id}" title="Editar"><i data-lucide="pencil"></i></button>
@@ -459,6 +483,8 @@
     document.getElementById('despesaDescricao').value = d.descricao;
     document.getElementById('despesaCategoria').value = d.categoria;
     despesaPagamento.value = d.pagamento;
+    document.getElementById('despesaParcelas').value = d.parcelas || 1;
+    toggleParcelasGroup(d.pagamento);
     document.getElementById('despesaData').value = d.data;
     formDespesa.classList.remove('hidden');
     formDespesa.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1096,7 +1122,7 @@
 
   async function handlePinSubmit() {
     if (pinInput.length < 4) {
-      showLockError('A senha deve ter entre 4 e 6 dígitos.');
+      showLockError('A senha deve ter 4 dígitos.');
       shakePin();
       return;
     }
@@ -1125,7 +1151,7 @@
           shakePin();
           pinInput = '';
           pinMode = 'setup';
-          setLockSubtitle('Crie uma senha de 4-6 dígitos');
+          setLockSubtitle('Crie uma senha de 4 dígitos');
           updatePinDots();
         }
         break;
@@ -1194,7 +1220,7 @@
     if (!storedHash) {
       // First time — setup
       pinMode = 'setup';
-      setLockSubtitle('Crie uma senha de 4-6 dígitos');
+      setLockSubtitle('Crie uma senha de 4 dígitos');
     } else {
       pinMode = 'login';
       setLockSubtitle('Digite sua senha para acessar');
@@ -1211,10 +1237,14 @@
         } else if (key === 'enter') {
           handlePinSubmit();
         } else {
-          if (pinInput.length < 6) {
+          if (pinInput.length < 4) {
             pinInput += key;
             hideLockError();
             updatePinDots();
+            // Auto-submit when 4 digits are entered
+            if (pinInput.length === 4) {
+              setTimeout(() => handlePinSubmit(), 100);
+            }
           }
         }
       });
@@ -1224,10 +1254,13 @@
     document.addEventListener('keydown', (e) => {
       if (lockScreen.classList.contains('hidden')) return;
       if (e.key >= '0' && e.key <= '9') {
-        if (pinInput.length < 6) {
+        if (pinInput.length < 4) {
           pinInput += e.key;
           hideLockError();
           updatePinDots();
+          if (pinInput.length === 4) {
+            setTimeout(() => handlePinSubmit(), 100);
+          }
         }
       } else if (e.key === 'Backspace') {
         pinInput = pinInput.slice(0, -1);
