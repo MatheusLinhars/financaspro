@@ -145,6 +145,7 @@ body {
   justify-content: center;
   overflow: hidden;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
 .logo-icon .icon-logo {
@@ -1409,35 +1410,32 @@ body {
 }
 
 .lock-logo-icon {
-  width: 80px;
-  height: 80px;
+  width: 90px;
+  height: 90px;
   border-radius: var(--radius-xl);
-  background: rgba(34, 197, 94, 0.08);
-  border: 2px solid rgba(34, 197, 94, 0.2);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 16px;
-  box-shadow: 0 0 30px rgba(34, 197, 94, 0.2);
+  box-shadow: 0 4px 24px rgba(34, 197, 94, 0.25);
   animation: lockPulse 2s ease-in-out infinite;
   overflow: hidden;
-  padding: 6px;
+  padding: 0;
 }
 
 .logo-img-lock {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  mix-blend-mode: screen;
-  filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.4));
+  object-fit: cover;
+  border-radius: var(--radius-xl);
 }
 
 .logo-img-sidebar {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  border-radius: 6px;
-  mix-blend-mode: screen;
+  object-fit: cover;
+  border-radius: var(--radius-md);
 }
 
 @keyframes lockPulse {
