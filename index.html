@@ -13,6 +13,42 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- Lock Screen -->
+  <div class="lock-screen" id="lockScreen">
+    <div class="lock-container">
+      <div class="lock-logo">
+        <div class="lock-logo-icon">
+          <i data-lucide="shield-check" class="icon-logo"></i>
+        </div>
+        <h1 class="lock-title">FinançasPro</h1>
+        <p class="lock-subtitle" id="lockSubtitle">Digite sua senha para acessar</p>
+      </div>
+      <div class="pin-display" id="pinDisplay">
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+      </div>
+      <p class="lock-error hidden" id="lockError">Senha incorreta. Tente novamente.</p>
+      <div class="pin-pad">
+        <button class="pin-key" data-key="1">1</button>
+        <button class="pin-key" data-key="2">2</button>
+        <button class="pin-key" data-key="3">3</button>
+        <button class="pin-key" data-key="4">4</button>
+        <button class="pin-key" data-key="5">5</button>
+        <button class="pin-key" data-key="6">6</button>
+        <button class="pin-key" data-key="7">7</button>
+        <button class="pin-key" data-key="8">8</button>
+        <button class="pin-key" data-key="9">9</button>
+        <button class="pin-key pin-key-fn" data-key="clear"><i data-lucide="delete"></i></button>
+        <button class="pin-key" data-key="0">0</button>
+        <button class="pin-key pin-key-fn pin-key-confirm" data-key="enter"><i data-lucide="check"></i></button>
+      </div>
+    </div>
+  </div>
+
   <!-- Sidebar Navigation -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
@@ -53,6 +89,14 @@
         <button id="prevMonth" aria-label="Mês anterior"><i data-lucide="chevron-left"></i></button>
         <span id="currentMonthLabel"></span>
         <button id="nextMonth" aria-label="Próximo mês"><i data-lucide="chevron-right"></i></button>
+      </div>
+      <div class="sidebar-security">
+        <button class="security-btn" id="btnLockApp" title="Bloquear app">
+          <i data-lucide="lock"></i> <span>Bloquear</span>
+        </button>
+        <button class="security-btn" id="btnChangePin" title="Alterar senha">
+          <i data-lucide="key-round"></i> <span>Alterar Senha</span>
+        </button>
       </div>
     </div>
   </aside>

@@ -7,12 +7,16 @@
 
   // ─── State ───
   const STORAGE_KEY = 'financaspro_data';
+  const PIN_KEY = 'financaspro_pin';
   let state = loadState();
   let currentMonth = new Date().getMonth();
   let currentYear = new Date().getFullYear();
   let chartCategoria = null;
   let chartPagamento = null;
   let depositTargetId = null;
+  let pinInput = '';
+  let pinMode = 'login'; // 'login', 'setup', 'confirm_setup', 'change_old', 'change_new', 'change_confirm'
+  let pendingNewPin = '';
 
   function defaultState() {
     return {
@@ -1029,8 +1033,233 @@
     renderCreditCards();
   }
 
+  // ─── PIN Security ───
+  async function hashPin(pin) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pin + 'financaspro_salt_2024');
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function getStoredPinHash() {
+    return localStorage.getItem(PIN_KEY);
+  }
+
+  function updatePinDots() {
+    const dots = document.querySelectorAll('#pinDisplay .pin-dot');
+    dots.forEach((dot, i) => {
+      dot.classList.toggle('filled', i < pinInput.length);
+      dot.classList.remove('error');
+    });
+  }
+
+  function shakePin() {
+    const dots = document.querySelectorAll('#pinDisplay .pin-dot');
+    dots.forEach(dot => dot.classList.add('error'));
+    setTimeout(() => dots.forEach(dot => dot.classList.remove('error')), 500);
+  }
+
+  function setLockSubtitle(text) {
+    document.getElementById('lockSubtitle').textContent = text;
+  }
+
+  function showLockError(msg) {
+    const el = document.getElementById('lockError');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  function hideLockError() {
+    document.getElementById('lockError').classList.add('hidden');
+  }
+
+  function unlockApp() {
+    const lockScreen = document.getElementById('lockScreen');
+    lockScreen.classList.add('unlocked');
+    setTimeout(() => {
+      lockScreen.classList.add('hidden');
+      lockScreen.classList.remove('unlocked');
+    }, 500);
+  }
+
+  function lockApp() {
+    pinInput = '';
+    pinMode = 'login';
+    hideLockError();
+    setLockSubtitle('Digite sua senha para acessar');
+    updatePinDots();
+    const lockScreen = document.getElementById('lockScreen');
+    lockScreen.classList.remove('hidden', 'unlocked');
+    lucide.createIcons({ nodes: [lockScreen] });
+  }
+
+  async function handlePinSubmit() {
+    if (pinInput.length < 4) {
+      showLockError('A senha deve ter entre 4 e 6 dígitos.');
+      shakePin();
+      return;
+    }
+
+    const hash = await hashPin(pinInput);
+
+    switch (pinMode) {
+      case 'setup':
+        pendingNewPin = pinInput;
+        pinInput = '';
+        pinMode = 'confirm_setup';
+        setLockSubtitle('Confirme sua nova senha');
+        hideLockError();
+        updatePinDots();
+        break;
+
+      case 'confirm_setup':
+        if (pinInput === pendingNewPin) {
+          const newHash = await hashPin(pinInput);
+          localStorage.setItem(PIN_KEY, newHash);
+          pendingNewPin = '';
+          showToast('Senha criada com sucesso! 🔒');
+          unlockApp();
+        } else {
+          showLockError('As senhas não coincidem. Tente novamente.');
+          shakePin();
+          pinInput = '';
+          pinMode = 'setup';
+          setLockSubtitle('Crie uma senha de 4-6 dígitos');
+          updatePinDots();
+        }
+        break;
+
+      case 'login':
+        if (hash === getStoredPinHash()) {
+          hideLockError();
+          unlockApp();
+        } else {
+          showLockError('Senha incorreta. Tente novamente.');
+          shakePin();
+          pinInput = '';
+          updatePinDots();
+        }
+        break;
+
+      case 'change_old':
+        if (hash === getStoredPinHash()) {
+          pinInput = '';
+          pinMode = 'change_new';
+          setLockSubtitle('Digite a nova senha');
+          hideLockError();
+          updatePinDots();
+        } else {
+          showLockError('Senha atual incorreta.');
+          shakePin();
+          pinInput = '';
+          updatePinDots();
+        }
+        break;
+
+      case 'change_new':
+        pendingNewPin = pinInput;
+        pinInput = '';
+        pinMode = 'change_confirm';
+        setLockSubtitle('Confirme a nova senha');
+        hideLockError();
+        updatePinDots();
+        break;
+
+      case 'change_confirm':
+        if (pinInput === pendingNewPin) {
+          const newHash = await hashPin(pinInput);
+          localStorage.setItem(PIN_KEY, newHash);
+          pendingNewPin = '';
+          pinInput = '';
+          pinMode = 'login';
+          showToast('Senha alterada com sucesso! 🔒');
+          unlockApp();
+        } else {
+          showLockError('As senhas não coincidem. Tente novamente.');
+          shakePin();
+          pinInput = '';
+          pinMode = 'change_new';
+          setLockSubtitle('Digite a nova senha');
+          updatePinDots();
+        }
+        break;
+    }
+  }
+
+  function initLockScreen() {
+    const lockScreen = document.getElementById('lockScreen');
+    const storedHash = getStoredPinHash();
+
+    if (!storedHash) {
+      // First time — setup
+      pinMode = 'setup';
+      setLockSubtitle('Crie uma senha de 4-6 dígitos');
+    } else {
+      pinMode = 'login';
+      setLockSubtitle('Digite sua senha para acessar');
+    }
+
+    // Pin pad clicks
+    document.querySelectorAll('.pin-key').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.key;
+        if (key === 'clear') {
+          pinInput = pinInput.slice(0, -1);
+          hideLockError();
+          updatePinDots();
+        } else if (key === 'enter') {
+          handlePinSubmit();
+        } else {
+          if (pinInput.length < 6) {
+            pinInput += key;
+            hideLockError();
+            updatePinDots();
+          }
+        }
+      });
+    });
+
+    // Keyboard support
+    document.addEventListener('keydown', (e) => {
+      if (lockScreen.classList.contains('hidden')) return;
+      if (e.key >= '0' && e.key <= '9') {
+        if (pinInput.length < 6) {
+          pinInput += e.key;
+          hideLockError();
+          updatePinDots();
+        }
+      } else if (e.key === 'Backspace') {
+        pinInput = pinInput.slice(0, -1);
+        hideLockError();
+        updatePinDots();
+      } else if (e.key === 'Enter') {
+        handlePinSubmit();
+      }
+    });
+
+    // Lock button
+    document.getElementById('btnLockApp').addEventListener('click', () => {
+      lockApp();
+      closeSidebar();
+    });
+
+    // Change PIN button
+    document.getElementById('btnChangePin').addEventListener('click', () => {
+      pinInput = '';
+      pinMode = 'change_old';
+      setLockSubtitle('Digite sua senha atual');
+      hideLockError();
+      updatePinDots();
+      lockScreen.classList.remove('hidden', 'unlocked');
+      lucide.createIcons({ nodes: [lockScreen] });
+      closeSidebar();
+    });
+  }
+
   // ─── Initialize ───
   function init() {
+    initLockScreen();
     updateMonthDisplay();
     updateReceitaFonteOptions();
     updatePagamentoOptions();
