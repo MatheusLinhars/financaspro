@@ -11,6 +11,14 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="styles.css" />
+  <!-- PWA / iPhone Home Screen -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Core Finance" />
+  <meta name="theme-color" content="#080f09" />
+  <meta name="mobile-web-app-capable" content="yes" />
 </head>
 <body>
   <!-- Lock Screen -->
@@ -72,6 +80,10 @@
       <button class="nav-item" data-section="despesas" id="nav-despesas">
         <i data-lucide="trending-down"></i>
         <span>Despesas</span>
+      </button>
+      <button class="nav-item" data-section="faturas" id="nav-faturas">
+        <i data-lucide="credit-card"></i>
+        <span>Faturas</span>
       </button>
       <button class="nav-item" data-section="investimentos" id="nav-investimentos">
         <i data-lucide="bar-chart-3"></i>
@@ -352,6 +364,17 @@
           </tbody>
         </table>
         <p class="empty-state" id="despesasEmpty">Nenhuma despesa registrada este mês.</p>
+      </div>
+    </section>
+
+    <!-- ==================== FATURAS ==================== -->
+    <section class="content-section" id="section-faturas">
+      <div class="section-header">
+        <h2><i data-lucide="credit-card"></i> Faturas dos Cartões</h2>
+      </div>
+      <p class="fatura-month-info">Exibindo todas as compras parceladas e à vista lançadas nos cartões de crédito cadastrados.</p>
+      <div id="faturasContainer">
+        <p class="empty-state" id="faturasEmpty">Nenhum cartão cadastrado ou sem despesas no crédito.</p>
       </div>
     </section>
 

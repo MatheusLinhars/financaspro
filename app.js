@@ -96,6 +96,7 @@
     dashboard: 'Dashboard',
     receitas: 'Receitas',
     despesas: 'Despesas',
+    faturas: 'Faturas dos Cartões',
     investimentos: 'Investimentos',
     metas: 'Metas Financeiras',
   };
@@ -396,25 +397,58 @@
 
   despesaForm.addEventListener('submit', (e) => {
     e.preventDefault();
+    const totalValor = parseFloat(document.getElementById('despesaValor').value);
     const parcelas = parseInt(document.getElementById('despesaParcelas').value) || 1;
-    const isParceled = despesaPagamento.value.startsWith('Crédito') && parcelas > 1;
-    const data = {
-      id: despesaEditId.value || generateId(),
-      valor: parseFloat(document.getElementById('despesaValor').value),
-      descricao: document.getElementById('despesaDescricao').value.trim(),
-      categoria: document.getElementById('despesaCategoria').value,
-      pagamento: despesaPagamento.value,
-      parcelas: isParceled ? parcelas : 1,
-      data: document.getElementById('despesaData').value,
-    };
+    const pagamento = despesaPagamento.value;
+    const isParceled = pagamento.startsWith('Crédito') && parcelas > 1;
+    const dataStr = document.getElementById('despesaData').value;
+    const descricao = document.getElementById('despesaDescricao').value.trim();
+    const categoria = document.getElementById('despesaCategoria').value;
 
+    // If editing, remove old entries (including group if parcelada)
     if (despesaEditId.value) {
-      const idx = state.despesas.findIndex(d => d.id === despesaEditId.value);
-      if (idx >= 0) state.despesas[idx] = data;
-      showToast('Despesa atualizada!');
+      const existing = state.despesas.find(d => d.id === despesaEditId.value);
+      if (existing && existing.grupoId) {
+        // Remove all entries from this group
+        state.despesas = state.despesas.filter(d => d.grupoId !== existing.grupoId);
+      } else if (existing) {
+        state.despesas = state.despesas.filter(d => d.id !== despesaEditId.value);
+      }
+    }
+
+    if (isParceled) {
+      // Split across months
+      const grupoId = despesaEditId.value ? (state.despesas.find(d => d.id === despesaEditId.value)?.grupoId || generateId()) : generateId();
+      const valorParcela = Math.round((totalValor / parcelas) * 100) / 100;
+      const [year, month, day] = dataStr.split('-').map(Number);
+
+      for (let i = 0; i < parcelas; i++) {
+        const d = new Date(year, month - 1 + i, day);
+        const parcelaDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        state.despesas.push({
+          id: generateId(),
+          valor: valorParcela,
+          descricao,
+          categoria,
+          pagamento,
+          parcelas,
+          parcelaNum: i + 1,
+          grupoId,
+          data: parcelaDateStr,
+        });
+      }
+      showToast(`${parcelas}x de ${formatCurrency(valorParcela)} lançado nos próximos ${parcelas} meses!`);
     } else {
-      state.despesas.push(data);
-      showToast('Despesa registrada!');
+      state.despesas.push({
+        id: despesaEditId.value || generateId(),
+        valor: totalValor,
+        descricao,
+        categoria,
+        pagamento,
+        parcelas: 1,
+        data: dataStr,
+      });
+      showToast(despesaEditId.value ? 'Despesa atualizada!' : 'Despesa registrada!');
     }
 
     saveState();
@@ -447,14 +481,16 @@
       else if (d.pagamento.startsWith('Crédito')) pagClass = 'badge-credito';
       else if (d.pagamento === 'Vale Refeição') pagClass = 'badge-vale';
 
-      const parcelas = d.parcelas && d.parcelas > 1 ? ` <span class="badge-parcelas">${d.parcelas}x</span>` : '';
+      const parcelaTag = d.grupoId
+        ? `<span class="badge-parcelas">${d.parcelaNum}/${d.parcelas}</span>`
+        : (d.parcelas && d.parcelas > 1 ? `<span class="badge-parcelas">${d.parcelas}x</span>` : '');
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${formatDate(d.data)}</td>
         <td>${d.descricao}</td>
         <td class="hide-xs"><span class="badge ${catClass}">${d.categoria}</span></td>
-        <td><span class="badge ${pagClass}">${d.pagamento}</span>${parcelas}</td>
+        <td><span class="badge ${pagClass}">${d.pagamento}</span>${parcelaTag}</td>
         <td class="text-right value-negative">${formatCurrency(d.valor)}</td>
         <td class="text-center">
           <button class="btn-icon edit" data-id="${d.id}" title="Editar"><i data-lucide="pencil"></i></button>
@@ -491,10 +527,28 @@
   }
 
   function deleteDespesa(id) {
-    if (!confirm('Excluir esta despesa?')) return;
-    state.despesas = state.despesas.filter(d => d.id !== id);
+    const d = state.despesas.find(x => x.id === id);
+    if (!d) return;
+
+    if (d.grupoId) {
+      const grupo = state.despesas.filter(x => x.grupoId === d.grupoId);
+      const futuras = grupo.filter(x => x.parcelaNum >= d.parcelaNum);
+      const choice = confirm(`Esta é a parcela ${d.parcelaNum}/${d.parcelas}.\n\nClicar OK exclui esta e todas as próximas parcelas (${futuras.length}x).\nClicar Cancelar exclui apenas esta parcela.`);
+      if (choice) {
+        // Delete this and all future installments
+        state.despesas = state.despesas.filter(x => !(x.grupoId === d.grupoId && x.parcelaNum >= d.parcelaNum));
+        showToast(`${futuras.length} parcela(s) excluída(s).`, 'info');
+      } else {
+        state.despesas = state.despesas.filter(x => x.id !== id);
+        showToast('Parcela excluída.', 'info');
+      }
+    } else {
+      if (!confirm('Excluir esta despesa?')) return;
+      state.despesas = state.despesas.filter(x => x.id !== id);
+      showToast('Despesa excluída.', 'info');
+    }
+
     saveState();
-    showToast('Despesa excluída.', 'info');
     refreshAll();
   }
 
@@ -1050,14 +1104,108 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
+  // ─── FATURAS ───
+  function renderFaturas() {
+    const container = document.getElementById('faturasContainer');
+    const emptyMsg = document.getElementById('faturasEmpty');
+
+    if (state.creditCards.length === 0) {
+      container.innerHTML = '';
+      container.appendChild(emptyMsg);
+      emptyMsg.style.display = 'block';
+      return;
+    }
+
+    // Gather all credit expenses per card
+    const cardData = {};
+    state.creditCards.forEach(card => {
+      const key = `Crédito - ${card}`;
+      const despesasCard = state.despesas
+        .filter(d => d.pagamento === key)
+        .sort((a, b) => b.data.localeCompare(a.data));
+      cardData[card] = despesasCard;
+    });
+
+    const hasAny = Object.values(cardData).some(arr => arr.length > 0);
+    emptyMsg.style.display = 'none';
+    container.innerHTML = '';
+
+    if (!hasAny) {
+      emptyMsg.style.display = 'block';
+      container.appendChild(emptyMsg);
+      return;
+    }
+
+    state.creditCards.forEach(card => {
+      const despesasCard = cardData[card];
+      const total = despesasCard.reduce((s, d) => s + d.valor, 0);
+
+      // Group by month/year
+      const byMonth = {};
+      despesasCard.forEach(d => {
+        const key = d.data.substring(0, 7); // YYYY-MM
+        if (!byMonth[key]) byMonth[key] = [];
+        byMonth[key].push(d);
+      });
+
+      const cardEl = document.createElement('div');
+      cardEl.className = 'fatura-card';
+
+      const monthsHtml = Object.keys(byMonth).sort((a, b) => b.localeCompare(a)).map(monthKey => {
+        const [y, m] = monthKey.split('-').map(Number);
+        const monthLabel = new Date(y, m - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        const monthTotal = byMonth[monthKey].reduce((s, d) => s + d.valor, 0);
+        const rows = byMonth[monthKey].map(d => {
+          const parcelaTag = d.grupoId
+            ? `<span class="badge-parcelas">${d.parcelaNum}/${d.parcelas}</span>`
+            : '';
+          return `
+            <div class="fatura-row">
+              <span class="fatura-date">${formatDate(d.data)}</span>
+              <span class="fatura-desc">${d.descricao}${parcelaTag}</span>
+              <span class="fatura-valor">${formatCurrency(d.valor)}</span>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div class="fatura-month-block">
+            <div class="fatura-month-header">
+              <span class="fatura-month-name">${monthLabel}</span>
+              <span class="fatura-month-total">${formatCurrency(monthTotal)}</span>
+            </div>
+            <div class="fatura-rows">${rows}</div>
+          </div>
+        `;
+      }).join('');
+
+      cardEl.innerHTML = `
+        <div class="fatura-card-header">
+          <div class="fatura-card-title">
+            <span class="fatura-card-icon">💳</span>
+            <span class="fatura-card-name">${card}</span>
+          </div>
+          <div class="fatura-card-total">
+            <span class="fatura-total-label">Total geral</span>
+            <span class="fatura-total-valor">${formatCurrency(total)}</span>
+          </div>
+        </div>
+        <div class="fatura-months">${monthsHtml || '<p class="fatura-empty-card">Nenhuma compra registrada neste cartão.</p>'}</div>
+      `;
+      container.appendChild(cardEl);
+    });
+  }
+
   function refreshAll() {
     renderDashboard();
     renderReceitas();
     renderDespesas();
+    renderFaturas();
     renderInvestimentos();
     renderMetas();
     renderCreditCards();
   }
+
 
   // ─── PIN Security ───
   async function hashPin(pin) {
