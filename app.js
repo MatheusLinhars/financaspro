@@ -63,16 +63,20 @@
   }
 
   // ─── Formatting ───
-  function formatCurrency(value) {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
+  function formatCurrency(val) {
+    if (val === undefined || val === null || isNaN(val)) return 'R$ 0,00';
+    try {
+      return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    } catch(e) { return `R$ ${val}`; }
   }
 
   function formatDate(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch(e) { return dateStr; }
   }
 
   function getMonthLabel(month, year) {
