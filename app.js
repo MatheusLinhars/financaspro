@@ -432,7 +432,10 @@
     const currentVal = despesaPagamento.value;
     despesaPagamento.innerHTML = `
       <option value="">Selecione...</option>
+      <option value="">Selecione...</option>
       <option value="PIX">PIX</option>
+      <option value="Boleto">Boleto</option>
+      <option value="Dinheiro">Dinheiro</option>
       <option value="Débito">Débito</option>
       <option value="Vale Refeição">Vale Refeição</option>
     `;
@@ -1379,7 +1382,7 @@
           <i data-lucide="${isIncome ? 'arrow-up-right' : 'arrow-down-right'}"></i>
         </div>
         <div class="recent-info">
-          <div class="recent-desc">${isIncome ? item.fonte : item.descricao}</div>
+          <div class="recent-desc">${isIncome ? item.fonte : (item.subcategoria || item.categoria)}</div>
           <div class="recent-date">${formatDate(item.data)}</div>
         </div>
         <div class="recent-amount ${isIncome ? 'value-positive' : 'value-negative'}">

@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=1.2.0" />
+  <link rel="stylesheet" href="styles.css?v=1.2.1" />
   <!-- PWA / iPhone Home Screen -->
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -319,8 +319,8 @@
               <input type="number" id="despesaValor" placeholder="0,00" step="0.01" min="0" required />
             </div>
             <div class="form-group">
-              <label for="despesaDescricao">Descrição</label>
-              <input type="text" id="despesaDescricao" placeholder="Ex: Conta de luz" required />
+              <label for="despesaDescricao">Descrição <span style="font-size: 0.75rem; color: var(--text-muted);">(Opcional)</span></label>
+              <input type="text" id="despesaDescricao" placeholder="Ex: Conta de luz" />
             </div>
             <div class="form-group">
               <label for="despesaCategoria">Categoria</label>
@@ -345,6 +345,8 @@
               <select id="despesaPagamento" required>
                 <option value="">Selecione...</option>
                 <option value="PIX">PIX</option>
+                <option value="Boleto">Boleto</option>
+                <option value="Dinheiro">Dinheiro</option>
                 <option value="Débito">Débito</option>
                 <option value="Vale Refeição">Vale Refeição</option>
               </select>
@@ -382,15 +384,6 @@
         </form>
       </div>
 
-      <!-- Credit Cards Manager -->
-      <div class="cards-manager">
-        <h4><i data-lucide="credit-card"></i> Cartões de Crédito</h4>
-        <div class="cards-list" id="creditCardsList"></div>
-        <div class="add-card-inline">
-          <input type="text" id="newCardName" placeholder="Nome do cartão (ex: Nubank)" />
-          <button class="btn-sm" id="btnAddCard"><i data-lucide="plus"></i> Adicionar</button>
-        </div>
-      </div>
 
       <!-- Expenses List -->
       <div class="data-table-wrapper">
@@ -419,9 +412,18 @@
       </div>
       <p class="fatura-month-info">Gerencie seus cartões de crédito, limites disponíveis e acompanhe faturas.</p>
       
+      <!-- Credit Cards Manager -->
+      <div class="cards-manager" style="margin-bottom: 24px;">
+        <div class="cards-list" id="creditCardsList"></div>
+        <div class="add-card-inline">
+          <input type="text" id="newCardName" placeholder="Adicionar novo cartão (ex: Nubank)" />
+          <button class="btn-sm" id="btnAddCard"><i data-lucide="plus"></i> Adicionar</button>
+        </div>
+      </div>
+
       <!-- Cards Grid -->
       <div class="cc-cards-grid" id="ccCardsGrid"></div>
-      <p class="empty-state" id="ccEmptyState">Nenhum cartão cadastrado. Vá em Despesas > Adicionar Despesa > Cartões.</p>
+      <p class="empty-state" id="ccEmptyState">Nenhum cartão cadastrado.</p>
 
       <!-- Card Details Modal -->
       <div class="modal-overlay hidden" id="ccDetailsModal">
@@ -684,6 +686,6 @@
   <!-- Toast Notification -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js?v=1.2.0"></script>
+  <script src="app.js?v=1.2.1"></script>
 </body>
 </html>
