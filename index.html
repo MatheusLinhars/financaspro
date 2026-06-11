@@ -52,7 +52,6 @@
         <button class="pin-key" data-key="0">0</button>
         <button class="pin-key pin-key-fn pin-key-confirm" data-key="enter"><i data-lucide="check"></i></button>
       </div>
-      <button class="btn-skip-pin hidden" id="btnSkipPin">Continuar sem senha</button>
     </div>
   </div>
 
@@ -126,6 +125,12 @@
 
     <!-- ==================== DASHBOARD ==================== -->
     <section class="content-section active" id="section-dashboard">
+      <div class="profile-alert hidden" id="profileAlert">
+        <i data-lucide="info"></i>
+        <span>Complete seu perfil nas configurações para uma melhor experiência.</span>
+        <button id="btnGoToConfig" class="btn-ghost btn-sm">Configurar agora</button>
+      </div>
+
       <div class="summary-cards">
         <div class="summary-card card-income">
           <div class="card-icon"><i data-lucide="arrow-up-circle"></i></div>
