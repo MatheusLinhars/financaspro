@@ -691,6 +691,11 @@
       const grupo = state.despesas.filter(x => x.grupoId === d.grupoId);
       const futuras = grupo.filter(x => x.parcelaNum >= d.parcelaNum);
       const choice = confirm(`Esta é a parcela ${d.parcelaNum}/${d.parcelas}.\n\nClicar OK exclui esta e todas as próximas parcelas (${futuras.length}x).\nClicar Cancelar exclui apenas esta parcela.`);
+      if (choice) {
+        // Delete this and all future installments
+        state.despesas = state.despesas.filter(x => !(x.grupoId === d.grupoId && x.parcelaNum >= d.parcelaNum));
+        showToast(`${futuras.length} parcela(s) excluída(s).`, 'info');
+      } else {
         state.despesas = state.despesas.filter(x => x.id !== id);
         showToast('Parcela excluída.', 'info');
       }
