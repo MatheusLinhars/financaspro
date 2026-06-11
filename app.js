@@ -520,7 +520,9 @@
     
     const isRecorrente = document.getElementById('despesaIsRecorrente').checked;
     const frequencia = document.getElementById('despesaFrequencia').value;
-    const repeticoes = parseInt(document.getElementById('despesaRepeticoes').value) || 2;
+    const repeticoesRaw = document.getElementById('despesaRepeticoes').value;
+    const isAssinaturaFixa = !repeticoesRaw;
+    const repeticoes = isAssinaturaFixa ? (frequencia === 'Mensal' ? 60 : 100) : parseInt(repeticoesRaw);
 
     // If editing, remove old entries (including group if parcelada or recorrente)
     if (despesaEditId.value) {
@@ -567,7 +569,7 @@
         state.despesas.push({
           id: generateId(),
           valor: totalValor,
-          descricao: descricao ? `${descricao} (${i + 1}/${repeticoes})` : '',
+          descricao: descricao ? (isAssinaturaFixa ? descricao : `${descricao} (${i + 1}/${repeticoes})`) : '',
           categoria,
           subcategoria,
           pagamento,
@@ -632,9 +634,14 @@
       else if (d.pagamento.startsWith('Crédito')) pagClass = 'badge-credito';
       else if (d.pagamento === 'Vale Refeição') pagClass = 'badge-vale';
 
-      const parcelaTag = d.grupoId
-        ? `<span class="badge-parcelas">${d.parcelaNum}/${d.parcelas}</span>`
-        : (d.parcelas && d.parcelas > 1 ? `<span class="badge-parcelas">${d.parcelas}x</span>` : '');
+      let parcelaTag = '';
+      if (d.parcelas && d.parcelaNum) {
+        parcelaTag = `<span class="badge-parcelas">${d.parcelaNum}/${d.parcelas}</span>`;
+      } else if (d.grupoId && !d.parcelaNum) {
+        parcelaTag = `<span class="badge-parcelas" style="background: rgba(255,255,255,0.1); color: var(--text-muted);"><i data-lucide="repeat" style="width: 10px; height: 10px;"></i> Recorrente</span>`;
+      } else if (d.parcelas && d.parcelas > 1) {
+        parcelaTag = `<span class="badge-parcelas">${d.parcelas}x</span>`;
+      }
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
