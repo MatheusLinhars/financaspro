@@ -1552,6 +1552,16 @@
     } else {
       titleEl.textContent = 'Core Finance';
     }
+
+    // Auto-shrink logic to prevent text from overflowing or wrapping
+    titleEl.style.fontSize = '1.15rem';
+    requestAnimationFrame(() => {
+      let size = 1.15;
+      while (titleEl.scrollWidth > titleEl.clientWidth && size > 0.7) {
+        size -= 0.05;
+        titleEl.style.fontSize = size + 'rem';
+      }
+    });
   }
 
   // ─── CONFIGURAÇÕES ───
