@@ -10,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=1.2.0" />
   <!-- PWA / iPhone Home Screen -->
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -81,9 +81,9 @@
         <i data-lucide="trending-down"></i>
         <span>Despesas</span>
       </button>
-      <button class="nav-item" data-section="faturas" id="nav-faturas">
+      <button class="nav-item" data-section="cartoes" id="nav-cartoes">
         <i data-lucide="credit-card"></i>
-        <span>Faturas</span>
+        <span>Cartões</span>
       </button>
       <button class="nav-item" data-section="investimentos" id="nav-investimentos">
         <i data-lucide="bar-chart-3"></i>
@@ -105,7 +105,7 @@
         <span>Configurações</span>
       </button>
       <div style="text-align: center; font-size: 0.7rem; color: var(--text-muted); margin-top: 1rem; opacity: 0.7;">
-        v1.1.1
+        v1.2.0
       </div>
     </div>
   </aside>
@@ -165,6 +165,27 @@
           <h3 class="recent-title"><i data-lucide="clock"></i> Últimas Movimentações</h3>
           <div class="recent-list" id="recentList">
             <p class="empty-state">Nenhuma movimentação registrada.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="recent-section" style="margin-bottom: 24px;">
+        <div class="recent-card">
+          <h3 class="recent-title"><i data-lucide="pie-chart"></i> Gastos por Categoria (Orçamento)</h3>
+          <div class="data-table-wrapper" style="margin-top: 12px; margin-bottom: 0;">
+            <table class="data-table budget-table" id="dashboardBudgetTable" style="display:none; margin-bottom: 0;">
+              <thead>
+                <tr>
+                  <th>Categoria</th>
+                  <th class="text-right">Orçamento</th>
+                  <th class="text-right">Gasto</th>
+                  <th class="text-right hide-xs">Restante</th>
+                  <th class="text-right">% Utilizado</th>
+                </tr>
+              </thead>
+              <tbody id="dashboardBudgetBody"></tbody>
+            </table>
+            <p class="empty-state" id="dashboardBudgetEmpty" style="margin: 12px 0;">Nenhum orçamento definido. Configure na aba Metas.</p>
           </div>
         </div>
       </div>
@@ -305,9 +326,18 @@
               <label for="despesaCategoria">Categoria</label>
               <select id="despesaCategoria" required>
                 <option value="">Selecione...</option>
-                <option value="Fixo">Fixo</option>
-                <option value="Necessário">Necessário</option>
-                <option value="Lazer">Lazer</option>
+                <option value="🏠 Moradia">🏠 Moradia</option>
+                <option value="🚗 Transporte">🚗 Transporte</option>
+                <option value="🍔 Alimentação">🍔 Alimentação</option>
+                <option value="🎮 Lazer">🎮 Lazer</option>
+                <option value="🏥 Saúde">🏥 Saúde</option>
+                <option value="🎓 Educação">🎓 Educação</option>
+              </select>
+            </div>
+            <div class="form-group hidden" id="subcategoriaGroup">
+              <label for="despesaSubcategoria">Subcategoria</label>
+              <select id="despesaSubcategoria" required>
+                <option value="">Selecione primeiro a Categoria...</option>
               </select>
             </div>
             <div class="form-group">
@@ -382,14 +412,43 @@
       </div>
     </section>
 
-    <!-- ==================== FATURAS ==================== -->
-    <section class="content-section" id="section-faturas">
+    <!-- ==================== CARTÕES ==================== -->
+    <section class="content-section" id="section-cartoes">
       <div class="section-header">
-        <h2><i data-lucide="credit-card"></i> Faturas</h2>
+        <h2><i data-lucide="credit-card"></i> Cartões</h2>
       </div>
-      <p class="fatura-month-info">Exibindo todas as compras parceladas e à vista lançadas nos cartões de crédito cadastrados.</p>
-      <div id="faturasContainer"></div>
-      <div class="empty-state" id="faturasEmpty">Nenhuma fatura encontrada.</div>
+      <p class="fatura-month-info">Gerencie seus cartões de crédito, limites disponíveis e acompanhe faturas.</p>
+      
+      <!-- Cards Grid -->
+      <div class="cc-cards-grid" id="ccCardsGrid"></div>
+      <p class="empty-state" id="ccEmptyState">Nenhum cartão cadastrado. Vá em Despesas > Adicionar Despesa > Cartões.</p>
+
+      <!-- Card Details Modal -->
+      <div class="modal-overlay hidden" id="ccDetailsModal">
+        <div class="modal-content cc-modal-content">
+          <div class="modal-header">
+            <h3 id="ccModalTitle">Detalhes do Cartão</h3>
+            <button class="btn-icon" id="ccModalClose"><i data-lucide="x"></i></button>
+          </div>
+          <div class="cc-modal-summary">
+            <div class="cc-summary-item">
+              <span>Fatura Atual</span>
+              <strong id="ccModalFaturaAtual" style="color: var(--accent-red)">R$ 0,00</strong>
+            </div>
+            <div class="cc-summary-item">
+              <span>Compras</span>
+              <strong id="ccModalComprasCount">0</strong>
+            </div>
+            <div class="cc-summary-item">
+              <span>Limite Disp.</span>
+              <strong id="ccModalLimiteDisp" style="color: var(--accent-green)">R$ 0,00</strong>
+            </div>
+          </div>
+          
+          <h4 style="margin-top: 24px; font-size: 1rem;"><i data-lucide="history"></i> Histórico de Faturas</h4>
+          <div id="ccFaturasHistory"></div>
+        </div>
+      </div>
     </section>
 
     <!-- ==================== INVESTIMENTOS ==================== -->
@@ -471,22 +530,8 @@
           <input type="hidden" id="metaEditId" value="" />
           <div class="form-grid">
             <div class="form-group">
-              <label for="metaTipo">Tipo de Meta</label>
-              <select id="metaTipo" required>
-                <option value="economia">Economia (Guardar dinheiro)</option>
-                <option value="fatura">Limite de Fatura (Controle de Gasto)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="metaNome">Nome da Meta</label>
+              <label for="metaNome">Nome da Meta (Economia)</label>
               <input type="text" id="metaNome" placeholder="Ex: Trocar de carro" required />
-            </div>
-            <div class="form-group hidden" id="metaCartaoGroup">
-              <label for="metaCartao">Cartão de Crédito</label>
-              <select id="metaCartao">
-                <option value="todos">Todos os Cartões</option>
-                <!-- Populated dynamically -->
-              </select>
             </div>
             <div class="form-group">
               <label for="metaAlvo">Valor Alvo (R$)</label>
@@ -540,6 +585,50 @@
         </div>
       </div>
       </div>
+
+      <!-- ORÇAMENTOS MENSAIS -->
+      <div class="section-header" style="margin-top: 40px;">
+        <h2><i data-lucide="pie-chart"></i> Orçamentos Mensais</h2>
+        <button class="btn-primary" id="btnAddOrcamento">
+          <i data-lucide="plus"></i> Novo Orçamento
+        </button>
+      </div>
+
+      <!-- Add Budget Form -->
+      <div class="form-card hidden" id="formOrcamento">
+        <h3 class="form-title">Definir Orçamento Mensal</h3>
+        <form id="orcamentoForm">
+          <input type="hidden" id="orcamentoEditId" value="" />
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="orcCategoria">Categoria</label>
+              <select id="orcCategoria" required>
+                <option value="">Selecione...</option>
+                <option value="🏠 Moradia">🏠 Moradia</option>
+                <option value="🚗 Transporte">🚗 Transporte</option>
+                <option value="🍔 Alimentação">🍔 Alimentação</option>
+                <option value="🎮 Lazer">🎮 Lazer</option>
+                <option value="🏥 Saúde">🏥 Saúde</option>
+                <option value="🎓 Educação">🎓 Educação</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="orcValor">Limite Mensal (R$)</label>
+              <input type="number" id="orcValor" placeholder="0,00" step="0.01" min="0" required />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-ghost" id="btnCancelOrcamento">Cancelar</button>
+            <button type="submit" class="btn-primary">
+              <i data-lucide="check"></i> Salvar
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="goals-grid" id="orcamentosGrid"></div>
+      <p class="empty-state" id="orcamentosEmpty">Nenhum orçamento definido para este mês.</p>
+
     </section>
 
     <!-- ==================== CONFIGURAÇÕES ==================== -->
@@ -595,6 +684,6 @@
   <!-- Toast Notification -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=1.2.0"></script>
 </body>
 </html>

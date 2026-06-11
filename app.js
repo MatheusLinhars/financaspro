@@ -12,6 +12,16 @@
   let state = loadState();
   let currentMonth = new Date().getMonth();
   let currentYear = new Date().getFullYear();
+  
+  const categoriasMap = {
+    '🏠 Moradia': ['🏠 Aluguel', '🏢 Condomínio', '⚡ Energia Elétrica', '🚰 Água', '🌐 Internet', '🏛️ IPTU', '🔥 Gás', '🔧 Manutenção Residencial', '🛋️ Móveis', '📦 Outros'],
+    '🚗 Transporte': ['⛽ Combustível', '🚕 Uber', '🚌 Ônibus', '🛣️ Pedágio', '🅿️ Estacionamento', '🔧 Manutenção do Veículo', '🛡️ Seguro do Veículo', '📦 Outros'],
+    '🍔 Alimentação': ['🛒 Supermercado', '🍽️ Restaurante', '🛵 Delivery', '🥖 Padaria', '🍔 Lanche', '📦 Outros'],
+    '🎮 Lazer': ['📺 Assinaturas', '🎬 Cinema', '📡 Streaming', '🎮 Jogos', '✈️ Viagens', '🎟️ Eventos', '🎨 Hobbies', '📦 Outros'],
+    '🏥 Saúde': ['❤️ Plano de Saúde', '👨‍⚕️ Consulta Médica', '💊 Medicamentos', '🧪 Exames', '🧠 Terapia', '💪 Academia', '📦 Outros'],
+    '🎓 Educação': ['🏫 Faculdade', '📚 Curso', '📖 Livros', '✏️ Material Escolar', '🏆 Certificações', '📦 Outros']
+  };
+
   let chartCategoria = null;
   let chartPagamento = null;
   let chartComparar = null;
@@ -31,6 +41,7 @@
       despesas: [],
       investimentos: [],
       metas: [],
+      orcamentos: [],
       customFontes: [],
       creditCards: [],
       perfil: { nome: '', sobrenome: '', idade: '', profissao: '', email: '' }
@@ -46,6 +57,45 @@
         if (parsed.perfil) {
           merged.perfil = { ...defaultState().perfil, ...parsed.perfil };
         }
+        
+        let needsSave = false;
+        
+        if (merged.creditCards.length > 0 && typeof merged.creditCards[0] === 'string') {
+          merged.creditCards = merged.creditCards.map(c => ({
+            id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
+            nome: c,
+            bandeira: '',
+            cor: '#c084fc',
+            ultimosDigitos: '0000',
+            limite: 2000,
+            diaVencimento: 10,
+            diaFechamento: 3,
+            dataCriacao: new Date().toISOString().split('T')[0]
+          }));
+          needsSave = true;
+        }
+
+        merged.despesas.forEach(d => {
+          if (d.categoria === 'Fixo') { d.categoria = '🏠 Moradia'; d.subcategoria = '📦 Outros'; needsSave = true; }
+          else if (d.categoria === 'Necessário') { d.categoria = '🍔 Alimentação'; d.subcategoria = '📦 Outros'; needsSave = true; }
+          else if (d.categoria === 'Lazer') { d.categoria = '🎮 Lazer'; d.subcategoria = '📦 Outros'; needsSave = true; }
+          else if (d.categoria && !Object.keys(categoriasMap).includes(d.categoria)) {
+            d.categoria = '🏠 Moradia';
+            d.subcategoria = '📦 Outros';
+            needsSave = true;
+          }
+        });
+
+        const origMetasLen = merged.metas.length;
+        merged.metas = merged.metas.filter(m => m.tipo !== 'fatura');
+        if (merged.metas.length !== origMetasLen) needsSave = true;
+
+        if (!merged.orcamentos) { merged.orcamentos = []; needsSave = true; }
+
+        if (needsSave) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        }
+        
         return merged;
       }
     } catch (e) {
@@ -112,7 +162,7 @@
     dashboard: 'Dashboard',
     receitas: 'Receitas',
     despesas: 'Despesas',
-    faturas: 'Faturas',
+    cartoes: 'Cartões',
     investimentos: 'Investimentos',
     metas: 'Metas Financeiras',
     configuracoes: 'Configurações',
@@ -388,8 +438,8 @@
     `;
     state.creditCards.forEach(card => {
       const opt = document.createElement('option');
-      opt.value = `Crédito - ${card}`;
-      opt.textContent = `Crédito - ${card}`;
+      opt.value = `Crédito - ${card.nome}`;
+      opt.textContent = `Crédito - ${card.nome}`;
       despesaPagamento.appendChild(opt);
     });
     if (currentVal) despesaPagamento.value = currentVal;
@@ -412,6 +462,31 @@
     toggleParcelasGroup(despesaPagamento.value);
   });
 
+  const despesaCategoria = document.getElementById('despesaCategoria');
+  const subcategoriaGroup = document.getElementById('subcategoriaGroup');
+  const despesaSubcategoria = document.getElementById('despesaSubcategoria');
+
+  despesaCategoria.addEventListener('change', () => {
+    updateSubcategorias();
+  });
+
+  function updateSubcategorias(currentSub = '') {
+    const cat = despesaCategoria.value;
+    despesaSubcategoria.innerHTML = '<option value="">Selecione...</option>';
+    if (cat && categoriasMap[cat]) {
+      subcategoriaGroup.classList.remove('hidden');
+      categoriasMap[cat].forEach(sub => {
+        const opt = document.createElement('option');
+        opt.value = sub;
+        opt.textContent = sub;
+        despesaSubcategoria.appendChild(opt);
+      });
+      if (currentSub) despesaSubcategoria.value = currentSub;
+    } else {
+      subcategoriaGroup.classList.add('hidden');
+    }
+  }
+
   despesaForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const totalValor = parseFloat(document.getElementById('despesaValor').value);
@@ -421,6 +496,7 @@
     const dataStr = document.getElementById('despesaData').value;
     const descricao = document.getElementById('despesaDescricao').value.trim();
     const categoria = document.getElementById('despesaCategoria').value;
+    const subcategoria = document.getElementById('despesaSubcategoria').value;
 
     // If editing, remove old entries (including group if parcelada)
     if (despesaEditId.value) {
@@ -447,6 +523,7 @@
           valor: valorParcela,
           descricao,
           categoria,
+          subcategoria,
           pagamento,
           parcelas,
           parcelaNum: i + 1,
@@ -461,6 +538,7 @@
         valor: totalValor,
         descricao,
         categoria,
+        subcategoria,
         pagamento,
         parcelas: 1,
         data: dataStr,
@@ -472,6 +550,7 @@
     formDespesa.classList.add('hidden');
     despesaForm.reset();
     document.getElementById('parcelasGroup').classList.add('hidden');
+    subcategoriaGroup.classList.add('hidden');
     refreshAll();
   });
 
@@ -492,7 +571,6 @@
     document.getElementById('despesasTable').style.display = 'table';
 
     filtered.forEach(d => {
-      const catClass = d.categoria === 'Fixo' ? 'badge-fixo' : d.categoria === 'Necessário' ? 'badge-necessario' : 'badge-lazer';
       let pagClass = 'badge-pix';
       if (d.pagamento === 'Débito') pagClass = 'badge-debito';
       else if (d.pagamento.startsWith('Crédito')) pagClass = 'badge-credito';
@@ -505,8 +583,13 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${formatDate(d.data)}</td>
-        <td>${d.descricao}</td>
-        <td class="hide-xs"><span class="badge ${catClass}">${d.categoria}</span></td>
+        <td>
+          ${d.descricao}
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+            ${d.subcategoria || ''}
+          </div>
+        </td>
+        <td class="hide-xs"><span class="badge-cat">${d.categoria}</span></td>
         <td><span class="badge ${pagClass}">${d.pagamento}</span>${parcelaTag}</td>
         <td class="text-right value-negative">${formatCurrency(d.valor)}</td>
         <td class="text-center">
@@ -535,6 +618,7 @@
     document.getElementById('despesaValor').value = d.valor;
     document.getElementById('despesaDescricao').value = d.descricao;
     document.getElementById('despesaCategoria').value = d.categoria;
+    updateSubcategorias(d.subcategoria);
     despesaPagamento.value = d.pagamento;
     document.getElementById('despesaParcelas').value = d.parcelas || 1;
     toggleParcelasGroup(d.pagamento);
@@ -579,11 +663,21 @@
       showToast('Informe o nome do cartão.', 'error');
       return;
     }
-    if (state.creditCards.includes(name)) {
+    if (state.creditCards.some(c => c.nome === name)) {
       showToast('Cartão já cadastrado.', 'error');
       return;
     }
-    state.creditCards.push(name);
+    state.creditCards.push({
+      id: generateId(),
+      nome: name,
+      bandeira: '',
+      cor: '#c084fc',
+      ultimosDigitos: '0000',
+      limite: 2000,
+      diaVencimento: 10,
+      diaFechamento: 3,
+      dataCriacao: new Date().toISOString().split('T')[0]
+    });
     saveState();
     newCardName.value = '';
     renderCreditCards();
@@ -597,16 +691,17 @@
     state.creditCards.forEach(card => {
       const chip = document.createElement('span');
       chip.className = 'card-chip';
-      chip.innerHTML = `💳 ${card} <button class="card-remove" data-card="${card}"><i data-lucide="x"></i></button>`;
+      chip.innerHTML = `💳 ${card.nome} <button class="card-remove" data-id="${card.id}"><i data-lucide="x"></i></button>`;
       container.appendChild(chip);
     });
     container.querySelectorAll('.card-remove').forEach(btn => {
       btn.addEventListener('click', () => {
-        if (!confirm(`Remover o cartão "${btn.dataset.card}"?`)) return;
-        state.creditCards = state.creditCards.filter(c => c !== btn.dataset.card);
+        if (!confirm('Remover este cartão?')) return;
+        state.creditCards = state.creditCards.filter(c => c.id !== btn.dataset.id);
         saveState();
         renderCreditCards();
         updatePagamentoOptions();
+        renderCartoes();
         showToast('Cartão removido.', 'info');
       });
     });
@@ -752,42 +847,8 @@
   btnAddMeta.addEventListener('click', () => {
     metaEditId.value = '';
     metaForm.reset();
-    
-    // Refresh credit card options for Fatura metas
-    const cartaoSelect = document.getElementById('metaCartao');
-    if (cartaoSelect) {
-      cartaoSelect.innerHTML = '<option value="todos">Todos os Cartões</option>';
-      state.creditCards.forEach(c => {
-        cartaoSelect.innerHTML += `<option value="${c}">${c}</option>`;
-      });
-    }
-
-    const metaCartaoGroup = document.getElementById('metaCartaoGroup');
-    const metaAtualGroup = document.getElementById('metaAtualGroup');
-    const metaAtualEl = document.getElementById('metaAtual');
-
-    if (metaCartaoGroup) metaCartaoGroup.classList.add('hidden');
-    if (metaAtualGroup) metaAtualGroup.classList.remove('hidden');
-    if (metaAtualEl) metaAtualEl.required = true;
-
     formMeta.classList.remove('hidden');
   });
-
-  const metaTipoEl = document.getElementById('metaTipo');
-  if (metaTipoEl) {
-    metaTipoEl.addEventListener('change', (e) => {
-      const isFatura = e.target.value === 'fatura';
-      if (isFatura) {
-        document.getElementById('metaCartaoGroup').classList.remove('hidden');
-        document.getElementById('metaAtualGroup').classList.add('hidden');
-        document.getElementById('metaAtual').required = false;
-      } else {
-        document.getElementById('metaCartaoGroup').classList.add('hidden');
-        document.getElementById('metaAtualGroup').classList.remove('hidden');
-        document.getElementById('metaAtual').required = true;
-      }
-    });
-  }
 
   btnCancelMeta.addEventListener('click', () => {
     formMeta.classList.add('hidden');
@@ -796,18 +857,13 @@
 
   metaForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    const metaTipoEl = document.getElementById('metaTipo');
-    const metaCartaoEl = document.getElementById('metaCartao');
-    const isFatura = metaTipoEl ? metaTipoEl.value === 'fatura' : false;
-    
     const data = {
       id: metaEditId.value || generateId(),
-      tipo: metaTipoEl ? metaTipoEl.value : 'economia',
+      tipo: 'economia',
       nome: document.getElementById('metaNome').value.trim(),
       alvo: parseFloat(document.getElementById('metaAlvo').value),
-      atual: isFatura ? 0 : parseFloat(document.getElementById('metaAtual').value),
+      atual: parseFloat(document.getElementById('metaAtual').value),
       icone: document.getElementById('metaIcone').value,
-      cartao: isFatura && metaCartaoEl ? metaCartaoEl.value : null,
     };
 
     if (metaEditId.value) {
@@ -829,6 +885,8 @@
     const grid = document.getElementById('goalsGrid');
     const empty = document.getElementById('metasEmpty');
 
+    if (!grid) return;
+
     if (state.metas.length === 0) {
       grid.innerHTML = '';
       if (empty) empty.style.display = 'block';
@@ -838,32 +896,8 @@
     grid.innerHTML = '';
 
     state.metas.forEach(m => {
-      let atual = m.atual;
-      let isFatura = m.tipo === 'fatura';
-      
-      if (isFatura) {
-        let spent = 0;
-        state.despesas.forEach(d => {
-          if (isInMonth(d.data, currentMonth, currentYear)) {
-            const isCC = state.creditCards.some(c => d.pagamento === 'Crédito - ' + c);
-            if (isCC && (m.cartao === 'todos' || d.pagamento === 'Crédito - ' + m.cartao)) {
-              spent += d.valor;
-            }
-          }
-        });
-        atual = spent;
-      }
-
-      const pct = Math.min(100, m.alvo > 0 ? (atual / m.alvo) * 100 : 0);
-      const isCompleted = isFatura ? false : pct >= 100;
-      const limitReached = isFatura && pct >= 100;
-      
-      let progressColor = '';
-      if (isFatura) {
-        if (pct >= 90) progressColor = 'background: #ef4444;'; // Red
-        else if (pct >= 70) progressColor = 'background: #f59e0b;'; // Yellow
-        else progressColor = 'background: #10b981;'; // Green
-      }
+      const pct = Math.min(100, m.alvo > 0 ? (m.atual / m.alvo) * 100 : 0);
+      const isCompleted = pct >= 100;
 
       const card = document.createElement('div');
       card.className = 'goal-card';
@@ -874,23 +908,20 @@
             <span class="goal-name">${m.nome}</span>
           </div>
           <div class="goal-header-actions">
-            ${isFatura ? '' : `<button class="btn-icon deposit" data-id="${m.id}" title="Depositar"><i data-lucide="plus-circle"></i></button>`}
+            <button class="btn-icon deposit" data-id="${m.id}" title="Depositar"><i data-lucide="plus-circle"></i></button>
             <button class="btn-icon edit" data-id="${m.id}" title="Editar"><i data-lucide="pencil"></i></button>
             <button class="btn-icon delete" data-id="${m.id}" title="Excluir"><i data-lucide="trash-2"></i></button>
           </div>
         </div>
         <div class="goal-amounts">
-          <span class="goal-current" style="${limitReached ? 'color: #f87171;' : ''}">${formatCurrency(atual)}</span>
-          <span class="goal-target">${isFatura ? 'Limite de ' : 'de '}${formatCurrency(m.alvo)}</span>
+          <span class="goal-current">${formatCurrency(m.atual)}</span>
+          <span class="goal-target">de ${formatCurrency(m.alvo)}</span>
         </div>
         <div class="goal-progress-bar">
-          <div class="goal-progress-fill ${isCompleted ? 'completed' : ''}" style="width: ${pct}%; ${progressColor}"></div>
+          <div class="goal-progress-fill ${isCompleted ? 'completed' : ''}" style="width: ${pct}%;"></div>
         </div>
-        <div class="goal-percentage ${isCompleted ? 'completed' : ''} ${limitReached ? 'value-negative' : ''}">
-          ${isFatura ? `Utilizado: ${pct.toFixed(1)}%` : `${pct.toFixed(1)}%`}
-          ${!isFatura && isCompleted ? '✓ Concluída!' : ''}
-          ${limitReached ? '⚠️ Limite ultrapassado!' : ''}
-          ${isFatura && !limitReached ? `<span style="float:right">Livre: ${formatCurrency(m.alvo - atual)}</span>` : ''}
+        <div class="goal-percentage ${isCompleted ? 'completed' : ''}">
+          ${pct.toFixed(1)}% ${isCompleted ? '✓ Concluída!' : ''}
         </div>
       `;
       grid.appendChild(card);
@@ -905,50 +936,6 @@
     grid.querySelectorAll('.delete').forEach(btn => {
       btn.addEventListener('click', () => deleteMeta(btn.dataset.id));
     });
-
-  function editMeta(id) {
-    const m = state.metas.find(x => x.id === id);
-    if (!m) return;
-    
-    metaEditId.value = m.id;
-    const metaTipoEl = document.getElementById('metaTipo');
-    if (metaTipoEl) metaTipoEl.value = m.tipo || 'economia';
-    
-    // Refresh credit card options
-    const cartaoSelect = document.getElementById('metaCartao');
-    if (cartaoSelect) {
-      cartaoSelect.innerHTML = '<option value="todos">Todos os Cartões</option>';
-      state.creditCards.forEach(c => {
-        cartaoSelect.innerHTML += `<option value="${c}">${c}</option>`;
-      });
-    }
-
-    document.getElementById('metaNome').value = m.nome;
-    document.getElementById('metaAlvo').value = m.alvo;
-    
-    const metaCartaoGroup = document.getElementById('metaCartaoGroup');
-    const metaAtualGroup = document.getElementById('metaAtualGroup');
-    const metaAtualEl = document.getElementById('metaAtual');
-    
-    if (m.tipo === 'fatura') {
-      if (metaCartaoGroup) metaCartaoGroup.classList.remove('hidden');
-      if (metaAtualGroup) metaAtualGroup.classList.add('hidden');
-      if (metaAtualEl) {
-        metaAtualEl.required = false;
-        metaAtualEl.value = '';
-      }
-      if (m.cartao && cartaoSelect) cartaoSelect.value = m.cartao;
-    } else {
-      if (metaCartaoGroup) metaCartaoGroup.classList.add('hidden');
-      if (metaAtualGroup) metaAtualGroup.classList.remove('hidden');
-      if (metaAtualEl) {
-        metaAtualEl.required = true;
-        metaAtualEl.value = m.atual;
-      }
-    }
-    document.getElementById('metaIcone').value = m.icone;
-    formMeta.classList.remove('hidden');
-  }
 
     lucide.createIcons({ nodes: [grid] });
   }
@@ -1020,6 +1007,138 @@
     }
   });
 
+  // ─── ORÇAMENTOS ───
+  const btnAddOrcamento = document.getElementById('btnAddOrcamento');
+  const formOrcamento = document.getElementById('formOrcamento');
+  const orcamentoForm = document.getElementById('orcamentoForm');
+  const btnCancelOrcamento = document.getElementById('btnCancelOrcamento');
+  const orcamentoEditId = document.getElementById('orcamentoEditId');
+
+  if (btnAddOrcamento) {
+    btnAddOrcamento.addEventListener('click', () => {
+      orcamentoEditId.value = '';
+      orcamentoForm.reset();
+      formOrcamento.classList.remove('hidden');
+    });
+
+    btnCancelOrcamento.addEventListener('click', () => {
+      formOrcamento.classList.add('hidden');
+      orcamentoForm.reset();
+    });
+
+    orcamentoForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const data = {
+        id: orcamentoEditId.value || generateId(),
+        categoria: document.getElementById('orcCategoria').value,
+        valor: parseFloat(document.getElementById('orcValor').value)
+      };
+
+      if (orcamentoEditId.value) {
+        const idx = state.orcamentos.findIndex(o => o.id === orcamentoEditId.value);
+        if (idx >= 0) state.orcamentos[idx] = data;
+        showToast('Orçamento atualizado!');
+      } else {
+        if (state.orcamentos.some(o => o.categoria === data.categoria)) {
+          showToast('Já existe um orçamento para esta categoria!', 'error');
+          return;
+        }
+        state.orcamentos.push(data);
+        showToast('Orçamento criado!');
+      }
+
+      saveState();
+      formOrcamento.classList.add('hidden');
+      orcamentoForm.reset();
+      renderOrcamentos();
+      renderDashboard();
+    });
+  }
+
+  function getGastosCategoria(cat) {
+    const despesasMes = state.despesas.filter(d => isInMonth(d.data, currentMonth, currentYear));
+    return despesasMes.filter(d => d.categoria === cat).reduce((s, d) => s + d.valor, 0);
+  }
+
+  function renderOrcamentos() {
+    const grid = document.getElementById('orcamentosGrid');
+    const empty = document.getElementById('orcamentosEmpty');
+
+    if (!grid) return;
+
+    if (!state.orcamentos || state.orcamentos.length === 0) {
+      grid.innerHTML = '';
+      if (empty) empty.style.display = 'block';
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    grid.innerHTML = '';
+
+    state.orcamentos.forEach(o => {
+      const gasto = getGastosCategoria(o.categoria);
+      const pct = Math.min(100, o.valor > 0 ? (gasto / o.valor) * 100 : 0);
+      const limitReached = pct >= 100;
+      
+      let progressColor = 'budget-green';
+      if (pct >= 90) progressColor = 'budget-red';
+      else if (pct >= 70) progressColor = 'budget-yellow';
+
+      const card = document.createElement('div');
+      card.className = 'goal-card';
+      card.innerHTML = `
+        <div class="goal-header">
+          <div class="goal-header-left">
+            <span class="goal-name">${o.categoria}</span>
+          </div>
+          <div class="goal-header-actions">
+            <button class="btn-icon edit-orc" data-id="${o.id}" title="Editar"><i data-lucide="pencil"></i></button>
+            <button class="btn-icon delete-orc" data-id="${o.id}" title="Excluir"><i data-lucide="trash-2"></i></button>
+          </div>
+        </div>
+        <div class="goal-amounts">
+          <span class="goal-current ${limitReached ? 'budget-text-red' : ''}">${formatCurrency(gasto)}</span>
+          <span class="goal-target">Orçamento: ${formatCurrency(o.valor)}</span>
+        </div>
+        <div class="budget-progress-bg">
+          <div class="budget-progress-fill ${progressColor}" style="width: ${pct}%;"></div>
+        </div>
+        <div class="goal-percentage ${limitReached ? 'budget-text-red' : ''}">
+          ${pct.toFixed(1)}% utilizado
+          ${!limitReached ? `<span style="float:right">Restante: ${formatCurrency(o.valor - gasto)}</span>` : ''}
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+
+    grid.querySelectorAll('.edit-orc').forEach(btn => {
+      btn.addEventListener('click', () => editOrcamento(btn.dataset.id));
+    });
+    grid.querySelectorAll('.delete-orc').forEach(btn => {
+      btn.addEventListener('click', () => deleteOrcamento(btn.dataset.id));
+    });
+
+    lucide.createIcons({ nodes: [grid] });
+  }
+
+  function editOrcamento(id) {
+    const o = state.orcamentos.find(x => x.id === id);
+    if (!o) return;
+    orcamentoEditId.value = o.id;
+    document.getElementById('orcCategoria').value = o.categoria;
+    document.getElementById('orcValor').value = o.valor;
+    formOrcamento.classList.remove('hidden');
+    formOrcamento.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function deleteOrcamento(id) {
+    if (!confirm('Excluir este orçamento?')) return;
+    state.orcamentos = state.orcamentos.filter(o => o.id !== id);
+    saveState();
+    showToast('Orçamento excluído.', 'info');
+    renderOrcamentos();
+    renderDashboard();
+  }
+
   // ─── DASHBOARD ───
   function renderDashboard() {
     const receitasMes = state.receitas.filter(r => isInMonth(r.data, currentMonth, currentYear));
@@ -1044,12 +1163,53 @@
 
     // Recent transactions
     renderRecent(receitasMes, despesasMes);
+
+    // Budget Table
+    renderDashboardBudget();
+  }
+
+  function renderDashboardBudget() {
+    const table = document.getElementById('dashboardBudgetTable');
+    const tbody = document.getElementById('dashboardBudgetBody');
+    const empty = document.getElementById('dashboardBudgetEmpty');
+
+    if (!table) return;
+
+    if (!state.orcamentos || state.orcamentos.length === 0) {
+      table.style.display = 'none';
+      empty.style.display = 'block';
+      return;
+    }
+
+    table.style.display = 'table';
+    empty.style.display = 'none';
+    tbody.innerHTML = '';
+
+    state.orcamentos.forEach(o => {
+      const gasto = getGastosCategoria(o.categoria);
+      const pct = Math.min(100, o.valor > 0 ? (gasto / o.valor) * 100 : 0);
+      const restante = o.valor - gasto;
+
+      let colorClass = 'budget-text-green';
+      if (pct >= 90) colorClass = 'budget-text-red';
+      else if (pct >= 70) colorClass = 'budget-text-yellow';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="badge-cat">${o.categoria}</span></td>
+        <td class="text-right">${formatCurrency(o.valor)}</td>
+        <td class="text-right">${formatCurrency(gasto)}</td>
+        <td class="text-right hide-xs ${restante < 0 ? 'budget-text-red' : ''}">${formatCurrency(restante)}</td>
+        <td class="text-right ${colorClass}" style="font-weight: 700;">${pct.toFixed(1)}%</td>
+      `;
+      tbody.appendChild(tr);
+    });
   }
 
   function renderChartCategoria(despesas) {
     const canvas = document.getElementById('chartCategoria');
     const emptyMsg = document.getElementById('chartCategoriaEmpty');
-    const totals = { 'Fixo': 0, 'Necessário': 0, 'Lazer': 0 };
+    const totals = {};
     despesas.forEach(d => { totals[d.categoria] = (totals[d.categoria] || 0) + d.valor; });
 
     const labels = Object.keys(totals).filter(k => totals[k] > 0);
@@ -1064,6 +1224,9 @@
     canvas.style.display = 'block';
     emptyMsg.style.display = 'none';
 
+    // Generates pleasant random colors for the dynamic categories
+    const backgroundColors = labels.map((_, i) => `hsl(${(i * 50) % 360}, 70%, 60%)`);
+
     if (chartCategoria) chartCategoria.destroy();
     chartCategoria = new Chart(canvas, {
       type: 'doughnut',
@@ -1071,7 +1234,7 @@
         labels,
         datasets: [{
           data,
-          backgroundColor: ['#818cf8', '#22d3ee', '#c084fc'],
+          backgroundColor: backgroundColors,
           borderColor: '#1a2235',
           borderWidth: 3,
           hoverOffset: 8,
@@ -1235,94 +1398,126 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
-  // ─── FATURAS ───
-  function renderFaturas() {
-    const container = document.getElementById('faturasContainer');
-    const emptyMsg = document.getElementById('faturasEmpty');
+  // ─── CARTÕES (V1.2.0) ───
+  function renderCartoes() {
+    const grid = document.getElementById('ccCardsGrid');
+    const emptyMsg = document.getElementById('ccEmptyState');
 
-    if (state.creditCards.length === 0) {
-      container.innerHTML = '';
+    if (!grid) return;
+
+    if (!state.creditCards || state.creditCards.length === 0) {
+      grid.innerHTML = '';
       if (emptyMsg) emptyMsg.style.display = 'block';
       return;
     }
 
-    const cardData = {};
-    state.creditCards.forEach(card => {
-      const key = `Crédito - ${card}`;
-      cardData[card] = state.despesas
-        .filter(d => d.pagamento === key)
-        .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
-    });
-
-    const hasAny = Object.values(cardData).some(arr => arr.length > 0);
     if (emptyMsg) emptyMsg.style.display = 'none';
-    container.innerHTML = '';
-
-    if (!hasAny) {
-      if (emptyMsg) emptyMsg.style.display = 'block';
-      return;
-    }
+    grid.innerHTML = '';
 
     state.creditCards.forEach(card => {
-      const despesasCard = cardData[card];
-      if (despesasCard.length === 0) return;
+      const isCC = 'Crédito - ' + card.nome;
+      const compras = state.despesas.filter(d => d.pagamento === isCC && isInMonth(d.data, currentMonth, currentYear));
+      const spent = compras.reduce((s, d) => s + d.valor, 0);
+      const disponivel = card.limite - spent;
+      const pct = Math.min(100, card.limite > 0 ? (spent / card.limite) * 100 : 0);
 
-      const total = despesasCard.reduce((s, d) => s + d.valor, 0);
+      const cardEl = document.createElement('div');
+      cardEl.className = 'cc-card';
+      cardEl.style.setProperty('--card-color', card.cor || '#c084fc');
+      
+      cardEl.innerHTML = `
+        <div class="cc-header">
+          <div class="cc-name">${card.nome}</div>
+          <div class="cc-digits">**** ${card.ultimosDigitos || '0000'}</div>
+        </div>
+        <div class="cc-limits">
+          <div class="cc-limit-row">
+            <span class="cc-limit-label">Limite Total</span>
+            <span class="cc-limit-value">${formatCurrency(card.limite)}</span>
+          </div>
+        </div>
+        <div class="cc-limit-bar-bg">
+          <div class="cc-limit-bar-fill" style="width: ${pct}%"></div>
+        </div>
+        <div class="cc-limit-row">
+          <span class="cc-limit-label">Disponível: ${formatCurrency(disponivel)}</span>
+          <span class="cc-pct">${pct.toFixed(1)}%</span>
+        </div>
+        <div class="cc-limit-row" style="margin-top: 10px; font-size: 0.75rem; color: var(--text-muted);">
+          <span>Vence dia ${card.diaVencimento || 10}</span>
+          <span>Fecha dia ${card.diaFechamento || 3}</span>
+        </div>
+      `;
 
-      // Group by month/year
+      cardEl.addEventListener('click', () => openCardDetailsModal(card, spent, compras.length, disponivel));
+      grid.appendChild(cardEl);
+    });
+  }
+
+  const ccDetailsModal = document.getElementById('ccDetailsModal');
+  const ccModalClose = document.getElementById('ccModalClose');
+
+  if (ccModalClose) {
+    ccModalClose.addEventListener('click', () => {
+      ccDetailsModal.classList.add('hidden');
+    });
+    ccDetailsModal.addEventListener('click', (e) => {
+      if (e.target === ccDetailsModal) ccDetailsModal.classList.add('hidden');
+    });
+  }
+
+  function openCardDetailsModal(card, faturaAtual, comprasCount, limiteDisp) {
+    document.getElementById('ccModalTitle').innerHTML = `<i data-lucide="credit-card" style="color: ${card.cor}"></i> ${card.nome}`;
+    document.getElementById('ccModalFaturaAtual').textContent = formatCurrency(faturaAtual);
+    document.getElementById('ccModalComprasCount').textContent = comprasCount;
+    document.getElementById('ccModalLimiteDisp').textContent = formatCurrency(limiteDisp);
+
+    const historyContainer = document.getElementById('ccFaturasHistory');
+    historyContainer.innerHTML = '';
+
+    const isCC = 'Crédito - ' + card.nome;
+    const cardDespesas = state.despesas.filter(d => d.pagamento === isCC).sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+
+    if (cardDespesas.length === 0) {
+      historyContainer.innerHTML = '<p class="empty-state">Nenhuma compra no histórico deste cartão.</p>';
+    } else {
       const byMonth = {};
-      despesasCard.forEach(d => {
+      cardDespesas.forEach(d => {
         const key = d.data.substring(0, 7);
         if (!byMonth[key]) byMonth[key] = [];
         byMonth[key].push(d);
       });
 
-      const cardEl = document.createElement('div');
-      cardEl.className = 'fatura-card';
-
       const monthsHtml = Object.keys(byMonth).sort((a, b) => (b || '').localeCompare(a || '')).map(monthKey => {
-        if (!monthKey) return '';
         const [y, m] = monthKey.split('-').map(Number);
-        if (!y || !m) return '';
         const mlabel = new Date(y, m - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
         const monthTotal = byMonth[monthKey].reduce((s, d) => s + d.valor, 0);
+        
         const rows = byMonth[monthKey].map(d => {
-          const parcelaTag = d.grupoId
-            ? `<span class="badge-parcelas">${d.parcelaNum}/${d.parcelas}</span>`
-            : '';
+          const parcelaTag = d.grupoId ? `<span class="badge-parcelas">${d.parcelaNum}/${d.parcelas}</span>` : '';
           return `
-            <div class="fatura-row">
-              <span class="fatura-date">${formatDate(d.data)}</span>
-              <span class="fatura-desc">${d.descricao}${parcelaTag}</span>
-              <span class="fatura-valor">${formatCurrency(d.valor)}</span>
+            <div class="fatura-row" style="padding: 6px 0;">
+              <span class="fatura-date" style="min-width: 60px;">${d.data.substring(8,10)}/${d.data.substring(5,7)}</span>
+              <span class="fatura-desc" style="font-size: 0.8rem;">${d.descricao}${parcelaTag}</span>
+              <span class="fatura-valor" style="font-size: 0.8rem;">${formatCurrency(d.valor)}</span>
             </div>`;
         }).join('');
 
         return `
-          <div class="fatura-month-block">
-            <div class="fatura-month-header">
+          <div class="fatura-card" style="margin-bottom: 12px; background: rgba(0,0,0,0.2);">
+            <div class="fatura-month-header" style="padding: 8px 16px;">
               <span class="fatura-month-name">${mlabel.charAt(0).toUpperCase() + mlabel.slice(1)}</span>
-              <span class="fatura-month-total">Total: ${formatCurrency(monthTotal)}</span>
+              <span class="fatura-month-total">${formatCurrency(monthTotal)}</span>
             </div>
-            <div class="fatura-rows">${rows}</div>
+            <div class="fatura-rows" style="padding: 4px 16px;">${rows}</div>
           </div>`;
       }).join('');
+      
+      historyContainer.innerHTML = monthsHtml;
+    }
 
-      cardEl.innerHTML = `
-        <div class="fatura-card-header">
-          <div class="fatura-card-title">
-            <span class="fatura-card-icon">💳</span>
-            <span class="fatura-card-name">${card}</span>
-          </div>
-          <div class="fatura-card-total">
-            <span class="fatura-total-label">Total acumulado</span>
-            <span class="fatura-total-valor">${formatCurrency(total)}</span>
-          </div>
-        </div>
-        <div class="fatura-months">${monthsHtml}</div>
-      `;
-      container.appendChild(cardEl);
-    });
+    ccDetailsModal.classList.remove('hidden');
+    lucide.createIcons({ nodes: [ccDetailsModal] });
   }
 
   // ─── HISTÓRICO (DASHBOARD) ───
@@ -1421,9 +1616,10 @@
     safeRun(renderDashboard, 'renderDashboard');
     safeRun(renderReceitas, 'renderReceitas');
     safeRun(renderDespesas, 'renderDespesas');
-    safeRun(renderFaturas, 'renderFaturas');
+    safeRun(renderCartoes, 'renderCartoes');
     safeRun(renderInvestimentos, 'renderInvestimentos');
     safeRun(renderMetas, 'renderMetas');
+    safeRun(renderOrcamentos, 'renderOrcamentos');
     safeRun(renderCreditCards, 'renderCreditCards');
     safeRun(renderHistoricoDashboard, 'renderHistoricoDashboard');
     safeRun(updateSidebarTitle, 'updateSidebarTitle');
