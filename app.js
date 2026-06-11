@@ -831,11 +831,10 @@
 
     if (state.metas.length === 0) {
       grid.innerHTML = '';
-      grid.appendChild(empty);
-      empty.style.display = 'block';
+      if (empty) empty.style.display = 'block';
       return;
     }
-    empty.style.display = 'none';
+    if (empty) empty.style.display = 'none';
     grid.innerHTML = '';
 
     state.metas.forEach(m => {
@@ -1243,8 +1242,7 @@
 
     if (state.creditCards.length === 0) {
       container.innerHTML = '';
-      container.appendChild(emptyMsg);
-      emptyMsg.style.display = 'block';
+      if (emptyMsg) emptyMsg.style.display = 'block';
       return;
     }
 
@@ -1257,12 +1255,11 @@
     });
 
     const hasAny = Object.values(cardData).some(arr => arr.length > 0);
-    emptyMsg.style.display = 'none';
+    if (emptyMsg) emptyMsg.style.display = 'none';
     container.innerHTML = '';
 
     if (!hasAny) {
-      emptyMsg.style.display = 'block';
-      container.appendChild(emptyMsg);
+      if (emptyMsg) emptyMsg.style.display = 'block';
       return;
     }
 
