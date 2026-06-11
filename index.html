@@ -93,6 +93,10 @@
         <i data-lucide="target"></i>
         <span>Metas</span>
       </button>
+      <button class="nav-item" data-section="comparar" id="nav-comparar">
+        <i data-lucide="git-compare-arrows"></i>
+        <span>Comparar</span>
+      </button>
     </nav>
     <div class="sidebar-footer">
       <div class="month-selector">
@@ -106,6 +110,9 @@
         </button>
         <button class="security-btn" id="btnChangePin" title="Alterar senha">
           <i data-lucide="key-round"></i> <span>Alterar Senha</span>
+        </button>
+        <button class="security-btn security-btn-danger" id="btnTogglePin" title="Ativar/Desativar senha">
+          <i data-lucide="shield-off"></i> <span id="togglePinLabel">Desativar</span>
         </button>
       </div>
     </div>
@@ -182,6 +189,41 @@
           <h3 class="recent-title"><i data-lucide="clock"></i> Últimas Movimentações</h3>
           <div class="recent-list" id="recentList">
             <p class="empty-state">Nenhuma movimentação registrada.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== COMPARAR MESES ==================== -->
+    <section class="content-section" id="section-comparar">
+      <div class="section-header">
+        <h2><i data-lucide="git-compare-arrows"></i> Comparação entre Meses</h2>
+      </div>
+      <div class="compare-controls">
+        <div class="compare-month-picker">
+          <label>Mês A</label>
+          <div class="compare-month-nav">
+            <button id="cmpAPrev"><i data-lucide="chevron-left"></i></button>
+            <span id="cmpALabel">—</span>
+            <button id="cmpANext"><i data-lucide="chevron-right"></i></button>
+          </div>
+        </div>
+        <div class="compare-vs">VS</div>
+        <div class="compare-month-picker">
+          <label>Mês B</label>
+          <div class="compare-month-nav">
+            <button id="cmpBPrev"><i data-lucide="chevron-left"></i></button>
+            <span id="cmpBLabel">—</span>
+            <button id="cmpBNext"><i data-lucide="chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="compare-grid" id="compareGrid"></div>
+      <div class="compare-chart-wrap">
+        <div class="chart-card">
+          <h3 class="chart-title"><i data-lucide="bar-chart-2"></i> Receitas vs Despesas</h3>
+          <div class="chart-container">
+            <canvas id="chartComparar"></canvas>
           </div>
         </div>
       </div>

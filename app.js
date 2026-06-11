@@ -8,15 +8,22 @@
   // ─── State ───
   const STORAGE_KEY = 'corefinance_data';
   const PIN_KEY = 'corefinance_pin';
+  const PIN_DISABLED_KEY = 'corefinance_pin_disabled';
   let state = loadState();
   let currentMonth = new Date().getMonth();
   let currentYear = new Date().getFullYear();
   let chartCategoria = null;
   let chartPagamento = null;
+  let chartComparar = null;
   let depositTargetId = null;
   let pinInput = '';
-  let pinMode = 'login'; // 'login', 'setup', 'confirm_setup', 'change_old', 'change_new', 'change_confirm'
+  let pinMode = 'login';
   let pendingNewPin = '';
+  // Comparison state
+  let cmpAMonth = new Date().getMonth();
+  let cmpAYear = new Date().getFullYear();
+  let cmpBMonth = new Date().getMonth() > 0 ? new Date().getMonth() - 1 : 11;
+  let cmpBYear = new Date().getMonth() > 0 ? new Date().getFullYear() : new Date().getFullYear() - 1;
 
   function defaultState() {
     return {
@@ -99,6 +106,7 @@
     faturas: 'Faturas dos Cartões',
     investimentos: 'Investimentos',
     metas: 'Metas Financeiras',
+    comparar: 'Comparação de Meses',
   };
 
   function navigateTo(sectionId) {
@@ -1116,14 +1124,12 @@
       return;
     }
 
-    // Gather all credit expenses per card
     const cardData = {};
     state.creditCards.forEach(card => {
       const key = `Crédito - ${card}`;
-      const despesasCard = state.despesas
+      cardData[card] = state.despesas
         .filter(d => d.pagamento === key)
         .sort((a, b) => b.data.localeCompare(a.data));
-      cardData[card] = despesasCard;
     });
 
     const hasAny = Object.values(cardData).some(arr => arr.length > 0);
@@ -1138,12 +1144,14 @@
 
     state.creditCards.forEach(card => {
       const despesasCard = cardData[card];
+      if (despesasCard.length === 0) return;
+
       const total = despesasCard.reduce((s, d) => s + d.valor, 0);
 
       // Group by month/year
       const byMonth = {};
       despesasCard.forEach(d => {
-        const key = d.data.substring(0, 7); // YYYY-MM
+        const key = d.data.substring(0, 7);
         if (!byMonth[key]) byMonth[key] = [];
         byMonth[key].push(d);
       });
@@ -1153,7 +1161,7 @@
 
       const monthsHtml = Object.keys(byMonth).sort((a, b) => b.localeCompare(a)).map(monthKey => {
         const [y, m] = monthKey.split('-').map(Number);
-        const monthLabel = new Date(y, m - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        const mlabel = new Date(y, m - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
         const monthTotal = byMonth[monthKey].reduce((s, d) => s + d.valor, 0);
         const rows = byMonth[monthKey].map(d => {
           const parcelaTag = d.grupoId
@@ -1164,19 +1172,17 @@
               <span class="fatura-date">${formatDate(d.data)}</span>
               <span class="fatura-desc">${d.descricao}${parcelaTag}</span>
               <span class="fatura-valor">${formatCurrency(d.valor)}</span>
-            </div>
-          `;
+            </div>`;
         }).join('');
 
         return `
           <div class="fatura-month-block">
             <div class="fatura-month-header">
-              <span class="fatura-month-name">${monthLabel}</span>
-              <span class="fatura-month-total">${formatCurrency(monthTotal)}</span>
+              <span class="fatura-month-name">${mlabel.charAt(0).toUpperCase() + mlabel.slice(1)}</span>
+              <span class="fatura-month-total">Total: ${formatCurrency(monthTotal)}</span>
             </div>
             <div class="fatura-rows">${rows}</div>
-          </div>
-        `;
+          </div>`;
       }).join('');
 
       cardEl.innerHTML = `
@@ -1186,14 +1192,159 @@
             <span class="fatura-card-name">${card}</span>
           </div>
           <div class="fatura-card-total">
-            <span class="fatura-total-label">Total geral</span>
+            <span class="fatura-total-label">Total acumulado</span>
             <span class="fatura-total-valor">${formatCurrency(total)}</span>
           </div>
         </div>
-        <div class="fatura-months">${monthsHtml || '<p class="fatura-empty-card">Nenhuma compra registrada neste cartão.</p>'}</div>
+        <div class="fatura-months">${monthsHtml}</div>
       `;
       container.appendChild(cardEl);
     });
+  }
+
+  // ─── COMPARAR MESES ───
+  function updateCmpLabels() {
+    document.getElementById('cmpALabel').textContent = getMonthLabel(cmpAMonth, cmpAYear);
+    document.getElementById('cmpBLabel').textContent = getMonthLabel(cmpBMonth, cmpBYear);
+  }
+
+  function renderComparar() {
+    const recA = state.receitas.filter(r => isInMonth(r.data, cmpAMonth, cmpAYear));
+    const despA = state.despesas.filter(d => isInMonth(d.data, cmpAMonth, cmpAYear));
+    const recB = state.receitas.filter(r => isInMonth(r.data, cmpBMonth, cmpBYear));
+    const despB = state.despesas.filter(d => isInMonth(d.data, cmpBMonth, cmpBYear));
+
+    const totRecA = recA.reduce((s, r) => s + r.valor, 0);
+    const totDespA = despA.reduce((s, d) => s + d.valor, 0);
+    const totRecB = recB.reduce((s, r) => s + r.valor, 0);
+    const totDespB = despB.reduce((s, d) => s + d.valor, 0);
+    const balA = totRecA - totDespA;
+    const balB = totRecB - totDespB;
+
+    const labelA = getMonthLabel(cmpAMonth, cmpAYear);
+    const labelB = getMonthLabel(cmpBMonth, cmpBYear);
+
+    function diffArrow(a, b, reverse = false) {
+      if (a === b) return '<span class="cmp-equal">—</span>';
+      const better = reverse ? (a < b) : (a > b);
+      const pct = b !== 0 ? Math.abs(((a - b) / b) * 100).toFixed(1) : '∞';
+      return better
+        ? `<span class="cmp-better">▲ ${pct}%</span>`
+        : `<span class="cmp-worse">▼ ${pct}%</span>`;
+    }
+
+    const grid = document.getElementById('compareGrid');
+    grid.innerHTML = `
+      <div class="cmp-table-wrap">
+        <table class="cmp-table">
+          <thead>
+            <tr>
+              <th>Indicador</th>
+              <th>${labelA.charAt(0).toUpperCase() + labelA.slice(1)}</th>
+              <th>${labelB.charAt(0).toUpperCase() + labelB.slice(1)}</th>
+              <th>Variação (A vs B)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="cmp-label income"><i data-lucide="trending-up"></i> Receitas</span></td>
+              <td class="value-positive">${formatCurrency(totRecA)}</td>
+              <td class="value-positive">${formatCurrency(totRecB)}</td>
+              <td>${diffArrow(totRecA, totRecB)}</td>
+            </tr>
+            <tr>
+              <td><span class="cmp-label expense"><i data-lucide="trending-down"></i> Despesas</span></td>
+              <td class="value-negative">${formatCurrency(totDespA)}</td>
+              <td class="value-negative">${formatCurrency(totDespB)}</td>
+              <td>${diffArrow(totDespA, totDespB, true)}</td>
+            </tr>
+            <tr>
+              <td><span class="cmp-label balance"><i data-lucide="scale"></i> Balanço</span></td>
+              <td class="${balA >= 0 ? 'value-positive' : 'value-negative'}">${formatCurrency(balA)}</td>
+              <td class="${balB >= 0 ? 'value-positive' : 'value-negative'}">${formatCurrency(balB)}</td>
+              <td>${diffArrow(balA, balB)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+    lucide.createIcons({ nodes: [grid] });
+
+    // Chart
+    const canvas = document.getElementById('chartComparar');
+    if (chartComparar) { chartComparar.destroy(); chartComparar = null; }
+    chartComparar = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: ['Receitas', 'Despesas', 'Balanço'],
+        datasets: [
+          {
+            label: labelA,
+            data: [totRecA, totDespA, balA],
+            backgroundColor: ['rgba(74,222,128,0.25)', 'rgba(248,113,113,0.25)', 'rgba(34,197,94,0.25)'],
+            borderColor: ['#4ade80', '#f87171', '#22c55e'],
+            borderWidth: 2,
+            borderRadius: 8,
+          },
+          {
+            label: labelB,
+            data: [totRecB, totDespB, balB],
+            backgroundColor: ['rgba(74,222,128,0.1)', 'rgba(248,113,113,0.1)', 'rgba(34,197,94,0.1)'],
+            borderColor: ['#4ade8060', '#f8717160', '#22c55e60'],
+            borderWidth: 2,
+            borderRadius: 8,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#8ba894', font: { family: 'Inter', size: 12 } } },
+          tooltip: {
+            backgroundColor: '#1a2a1d',
+            titleColor: '#f0f5f1',
+            bodyColor: '#f0f5f1',
+            borderColor: 'rgba(34,197,94,0.2)',
+            borderWidth: 1,
+            cornerRadius: 8,
+            padding: 12,
+            callbacks: { label: ctx => ` ${ctx.dataset.label}: ${formatCurrency(ctx.raw)}` },
+          },
+        },
+        scales: {
+          x: { ticks: { color: '#8ba894' }, grid: { display: false }, border: { display: false } },
+          y: {
+            ticks: { color: '#4f6655', callback: v => formatCurrency(v), font: { size: 11 } },
+            grid: { color: 'rgba(255,255,255,0.04)' },
+            border: { display: false },
+          },
+        },
+      },
+    });
+  }
+
+  function initComparar() {
+    updateCmpLabels();
+
+    function cmpNav(monthRef, yearRef, delta, setM, setY, update) {
+      let m = monthRef() + delta;
+      let y = yearRef();
+      if (m < 0) { m = 11; y--; }
+      if (m > 11) { m = 0; y++; }
+      setM(m); setY(y);
+      updateCmpLabels();
+      renderComparar();
+    }
+
+    document.getElementById('cmpAPrev').addEventListener('click', () =>
+      cmpNav(() => cmpAMonth, () => cmpAYear, -1, m => cmpAMonth = m, y => cmpAYear = y));
+    document.getElementById('cmpANext').addEventListener('click', () =>
+      cmpNav(() => cmpAMonth, () => cmpAYear, +1, m => cmpAMonth = m, y => cmpAYear = y));
+    document.getElementById('cmpBPrev').addEventListener('click', () =>
+      cmpNav(() => cmpBMonth, () => cmpBYear, -1, m => cmpBMonth = m, y => cmpBYear = y));
+    document.getElementById('cmpBNext').addEventListener('click', () =>
+      cmpNav(() => cmpBMonth, () => cmpBYear, +1, m => cmpBMonth = m, y => cmpBYear = y));
   }
 
   function refreshAll() {
@@ -1204,6 +1355,7 @@
     renderInvestimentos();
     renderMetas();
     renderCreditCards();
+    renderComparar();
   }
 
 
@@ -1364,9 +1516,28 @@
   function initLockScreen() {
     const lockScreen = document.getElementById('lockScreen');
     const storedHash = getStoredPinHash();
+    const pinDisabled = localStorage.getItem(PIN_DISABLED_KEY) === 'true';
 
-    if (!storedHash) {
-      // First time — setup
+    // Update toggle button label
+    function updateToggleBtnLabel() {
+      const isDisabled = localStorage.getItem(PIN_DISABLED_KEY) === 'true';
+      const label = document.getElementById('togglePinLabel');
+      const btn = document.getElementById('btnTogglePin');
+      if (isDisabled) {
+        label.textContent = 'Ativar Senha';
+        btn.querySelector('i').setAttribute('data-lucide', 'shield-check');
+      } else {
+        label.textContent = 'Desativar';
+        btn.querySelector('i').setAttribute('data-lucide', 'shield-off');
+      }
+      lucide.createIcons({ nodes: [btn] });
+    }
+    updateToggleBtnLabel();
+
+    if (pinDisabled) {
+      // Skip lock screen entirely
+      unlockApp();
+    } else if (!storedHash) {
       pinMode = 'setup';
       setLockSubtitle('Crie uma senha de 4 dígitos');
     } else {
@@ -1436,11 +1607,46 @@
       lucide.createIcons({ nodes: [lockScreen] });
       closeSidebar();
     });
+    // Toggle PIN button
+    document.getElementById('btnTogglePin').addEventListener('click', () => {
+      const isDisabled = localStorage.getItem(PIN_DISABLED_KEY) === 'true';
+      if (isDisabled) {
+        // Re-enable: go to setup flow
+        localStorage.removeItem(PIN_DISABLED_KEY);
+        localStorage.removeItem(PIN_KEY);
+        pinInput = '';
+        pinMode = 'setup';
+        setLockSubtitle('Crie uma nova senha de 4 dígitos');
+        hideLockError();
+        updatePinDots();
+        lockScreen.classList.remove('hidden', 'unlocked');
+        lucide.createIcons({ nodes: [lockScreen] });
+        showToast('Crie uma nova senha para ativar a proteção.', 'info');
+      } else {
+        if (!confirm('Desativar a senha remove a proteção do app. Confirma?')) return;
+        localStorage.setItem(PIN_DISABLED_KEY, 'true');
+        showToast('Senha desativada. O app abrirá sem senha.', 'info');
+      }
+      // Update label
+      const isNowDisabled = localStorage.getItem(PIN_DISABLED_KEY) === 'true';
+      const label = document.getElementById('togglePinLabel');
+      const btn = document.getElementById('btnTogglePin');
+      if (isNowDisabled) {
+        label.textContent = 'Ativar Senha';
+        btn.querySelector('i').setAttribute('data-lucide', 'shield-check');
+      } else {
+        label.textContent = 'Desativar';
+        btn.querySelector('i').setAttribute('data-lucide', 'shield-off');
+      }
+      lucide.createIcons({ nodes: [btn] });
+      closeSidebar();
+    });
   }
 
   // ─── Initialize ───
   function init() {
     initLockScreen();
+    initComparar();
     updateMonthDisplay();
     updateReceitaFonteOptions();
     updatePagamentoOptions();
