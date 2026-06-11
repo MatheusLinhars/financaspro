@@ -746,30 +746,39 @@
     
     // Refresh credit card options for Fatura metas
     const cartaoSelect = document.getElementById('metaCartao');
-    cartaoSelect.innerHTML = '<option value="todos">Todos os Cartões</option>';
-    state.creditCards.forEach(c => {
-      cartaoSelect.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
-    });
+    if (cartaoSelect) {
+      cartaoSelect.innerHTML = '<option value="todos">Todos os Cartões</option>';
+      state.creditCards.forEach(c => {
+        cartaoSelect.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
+      });
+    }
 
-    document.getElementById('metaCartaoGroup').classList.add('hidden');
-    document.getElementById('metaAtualGroup').classList.remove('hidden');
-    document.getElementById('metaAtual').required = true;
+    const metaCartaoGroup = document.getElementById('metaCartaoGroup');
+    const metaAtualGroup = document.getElementById('metaAtualGroup');
+    const metaAtualEl = document.getElementById('metaAtual');
+
+    if (metaCartaoGroup) metaCartaoGroup.classList.add('hidden');
+    if (metaAtualGroup) metaAtualGroup.classList.remove('hidden');
+    if (metaAtualEl) metaAtualEl.required = true;
 
     formMeta.classList.remove('hidden');
   });
 
-  document.getElementById('metaTipo').addEventListener('change', (e) => {
-    const isFatura = e.target.value === 'fatura';
-    if (isFatura) {
-      document.getElementById('metaCartaoGroup').classList.remove('hidden');
-      document.getElementById('metaAtualGroup').classList.add('hidden');
-      document.getElementById('metaAtual').required = false;
-    } else {
-      document.getElementById('metaCartaoGroup').classList.add('hidden');
-      document.getElementById('metaAtualGroup').classList.remove('hidden');
-      document.getElementById('metaAtual').required = true;
-    }
-  });
+  const metaTipoEl = document.getElementById('metaTipo');
+  if (metaTipoEl) {
+    metaTipoEl.addEventListener('change', (e) => {
+      const isFatura = e.target.value === 'fatura';
+      if (isFatura) {
+        document.getElementById('metaCartaoGroup').classList.remove('hidden');
+        document.getElementById('metaAtualGroup').classList.add('hidden');
+        document.getElementById('metaAtual').required = false;
+      } else {
+        document.getElementById('metaCartaoGroup').classList.add('hidden');
+        document.getElementById('metaAtualGroup').classList.remove('hidden');
+        document.getElementById('metaAtual').required = true;
+      }
+    });
+  }
 
   btnCancelMeta.addEventListener('click', () => {
     formMeta.classList.add('hidden');
@@ -778,16 +787,18 @@
 
   metaForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    const isFatura = document.getElementById('metaTipo').value === 'fatura';
+    const metaTipoEl = document.getElementById('metaTipo');
+    const metaCartaoEl = document.getElementById('metaCartao');
+    const isFatura = metaTipoEl ? metaTipoEl.value === 'fatura' : false;
     
     const data = {
       id: metaEditId.value || generateId(),
-      tipo: document.getElementById('metaTipo').value,
+      tipo: metaTipoEl ? metaTipoEl.value : 'economia',
       nome: document.getElementById('metaNome').value.trim(),
       alvo: parseFloat(document.getElementById('metaAlvo').value),
       atual: isFatura ? 0 : parseFloat(document.getElementById('metaAtual').value),
       icone: document.getElementById('metaIcone').value,
-      cartao: isFatura ? document.getElementById('metaCartao').value : null,
+      cartao: isFatura && metaCartaoEl ? metaCartaoEl.value : null,
     };
 
     if (metaEditId.value) {
@@ -892,28 +903,40 @@
     if (!m) return;
     
     metaEditId.value = m.id;
-    document.getElementById('metaTipo').value = m.tipo || 'economia';
+    const metaTipoEl = document.getElementById('metaTipo');
+    if (metaTipoEl) metaTipoEl.value = m.tipo || 'economia';
     
     // Refresh credit card options
     const cartaoSelect = document.getElementById('metaCartao');
-    cartaoSelect.innerHTML = '<option value="todos">Todos os Cartões</option>';
-    state.creditCards.forEach(c => {
-      cartaoSelect.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
-    });
+    if (cartaoSelect) {
+      cartaoSelect.innerHTML = '<option value="todos">Todos os Cartões</option>';
+      state.creditCards.forEach(c => {
+        cartaoSelect.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
+      });
+    }
 
     document.getElementById('metaNome').value = m.nome;
     document.getElementById('metaAlvo').value = m.alvo;
+    
+    const metaCartaoGroup = document.getElementById('metaCartaoGroup');
+    const metaAtualGroup = document.getElementById('metaAtualGroup');
+    const metaAtualEl = document.getElementById('metaAtual');
+    
     if (m.tipo === 'fatura') {
-      document.getElementById('metaCartaoGroup').classList.remove('hidden');
-      document.getElementById('metaAtualGroup').classList.add('hidden');
-      document.getElementById('metaAtual').required = false;
-      document.getElementById('metaAtual').value = '';
-      if (m.cartao) document.getElementById('metaCartao').value = m.cartao;
+      if (metaCartaoGroup) metaCartaoGroup.classList.remove('hidden');
+      if (metaAtualGroup) metaAtualGroup.classList.add('hidden');
+      if (metaAtualEl) {
+        metaAtualEl.required = false;
+        metaAtualEl.value = '';
+      }
+      if (m.cartao && cartaoSelect) cartaoSelect.value = m.cartao;
     } else {
-      document.getElementById('metaCartaoGroup').classList.add('hidden');
-      document.getElementById('metaAtualGroup').classList.remove('hidden');
-      document.getElementById('metaAtual').required = true;
-      document.getElementById('metaAtual').value = m.atual;
+      if (metaCartaoGroup) metaCartaoGroup.classList.add('hidden');
+      if (metaAtualGroup) metaAtualGroup.classList.remove('hidden');
+      if (metaAtualEl) {
+        metaAtualEl.required = true;
+        metaAtualEl.value = m.atual;
+      }
     }
     document.getElementById('metaIcone').value = m.icone;
     formMeta.classList.remove('hidden');
