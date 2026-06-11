@@ -117,11 +117,7 @@
     const sectionEl = document.getElementById(`section-${sectionId}`);
     if (navBtn) navBtn.classList.add('active');
     if (sectionEl) sectionEl.classList.add('active');
-    let titleStr = sectionTitles[sectionId] || sectionId;
-    if (sectionId === 'dashboard' && state.perfil && state.perfil.nome) {
-      titleStr = `Finanças de ${state.perfil.nome}`;
-    }
-    pageTitle.textContent = titleStr;
+    pageTitle.textContent = sectionTitles[sectionId] || sectionId;
     closeSidebar();
   }
 
@@ -1302,14 +1298,11 @@
     renderMetas();
     renderCreditCards();
     renderHistoricoDashboard();
+    updateSidebarTitle();
 
     const activeNav = document.querySelector('.nav-item.active');
     if (activeNav) {
-      let titleStr = sectionTitles[activeNav.dataset.section] || activeNav.dataset.section;
-      if (activeNav.dataset.section === 'dashboard' && state.perfil && state.perfil.nome) {
-        titleStr = `Finanças de ${state.perfil.nome}`;
-      }
-      pageTitle.textContent = titleStr;
+      pageTitle.textContent = sectionTitles[activeNav.dataset.section] || activeNav.dataset.section;
     }
 
     const alertEl = document.getElementById('profileAlert');
@@ -1556,6 +1549,17 @@
 
   }
 
+  function updateSidebarTitle() {
+    const titleEl = document.getElementById('sidebarAppTitle');
+    if (!titleEl) return;
+    if (state.perfil && state.perfil.nome) {
+      const nomeFull = `${state.perfil.nome} ${state.perfil.sobrenome || ''}`.trim();
+      titleEl.textContent = nomeFull;
+    } else {
+      titleEl.textContent = 'Core Finance';
+    }
+  }
+
   // ─── CONFIGURAÇÕES ───
   function initConfiguracoes() {
     // 1. Perfil
@@ -1574,6 +1578,7 @@
         const key = id.replace('cfg', '').toLowerCase();
         state.perfil[key] = e.target.value;
         saveState();
+        updateSidebarTitle();
       });
     });
 
