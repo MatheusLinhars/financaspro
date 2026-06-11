@@ -2003,3 +2003,13 @@ body {
   padding-top: 16px;
 }
 
+.config-profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.config-profile-grid .email-group {
+  grid-column: 1 / -1;
+}
+
