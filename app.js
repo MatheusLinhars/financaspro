@@ -738,6 +738,7 @@
     shield: '🛡️',
     graduation: '🎓',
     gift: '🎁',
+    'credit-card': '💳',
   };
 
   btnAddMeta.addEventListener('click', () => {
@@ -749,7 +750,7 @@
     if (cartaoSelect) {
       cartaoSelect.innerHTML = '<option value="todos">Todos os Cartões</option>';
       state.creditCards.forEach(c => {
-        cartaoSelect.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
+        cartaoSelect.innerHTML += `<option value="${c}">${c}</option>`;
       });
     }
 
@@ -837,8 +838,8 @@
         let spent = 0;
         state.despesas.forEach(d => {
           if (isInMonth(d.data, currentMonth, currentYear)) {
-            const isCC = state.creditCards.some(c => c.nome === d.formaPagamento);
-            if (isCC && (m.cartao === 'todos' || d.formaPagamento === m.cartao)) {
+            const isCC = state.creditCards.some(c => d.pagamento === 'Crédito - ' + c);
+            if (isCC && (m.cartao === 'todos' || d.pagamento === 'Crédito - ' + m.cartao)) {
               spent += d.valor;
             }
           }
@@ -846,7 +847,7 @@
         atual = spent;
       }
 
-      const pct = Math.min(100, (atual / m.alvo) * 100);
+      const pct = Math.min(100, m.alvo > 0 ? (atual / m.alvo) * 100 : 0);
       const isCompleted = isFatura ? false : pct >= 100;
       const limitReached = isFatura && pct >= 100;
       
@@ -879,8 +880,8 @@
           <div class="goal-progress-fill ${isCompleted ? 'completed' : ''}" style="width: ${pct}%; ${progressColor}"></div>
         </div>
         <div class="goal-percentage ${isCompleted ? 'completed' : ''} ${limitReached ? 'value-negative' : ''}">
-          ${pct.toFixed(1)}% 
-          ${isCompleted ? '✓ Concluída!' : ''}
+          ${isFatura ? `Utilizado: ${pct.toFixed(1)}%` : `${pct.toFixed(1)}%`}
+          ${!isFatura && isCompleted ? '✓ Concluída!' : ''}
           ${limitReached ? '⚠️ Limite ultrapassado!' : ''}
           ${isFatura && !limitReached ? `<span style="float:right">Livre: ${formatCurrency(m.alvo - atual)}</span>` : ''}
         </div>
@@ -911,7 +912,7 @@
     if (cartaoSelect) {
       cartaoSelect.innerHTML = '<option value="todos">Todos os Cartões</option>';
       state.creditCards.forEach(c => {
-        cartaoSelect.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
+        cartaoSelect.innerHTML += `<option value="${c}">${c}</option>`;
       });
     }
 
@@ -1577,8 +1578,8 @@
         break;
 
       case 'confirm_disable':
-        const storedHash = getStoredPinHash();
-        if (hash === storedHash) {
+        const disableStoredHash = getStoredPinHash();
+        if (hash === disableStoredHash) {
           localStorage.setItem(PIN_DISABLED_KEY, 'true');
           const label = document.getElementById('togglePinLabel');
           const btn = document.getElementById('btnTogglePin');
@@ -1588,6 +1589,9 @@
             lucide.createIcons({ nodes: [btn] });
           }
           showToast('Senha desativada.', 'info');
+          pinInput = '';
+          pinMode = 'login';
+          updatePinDots();
           unlockApp();
         } else {
           showLockError('Senha incorreta.');
