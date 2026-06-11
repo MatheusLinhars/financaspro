@@ -1601,17 +1601,26 @@
 
     // Lock button
     document.getElementById('btnLockApp').addEventListener('click', () => {
+      if (localStorage.getItem(PIN_DISABLED_KEY) === 'true' || !getStoredPinHash()) {
+        showToast('Nenhuma senha configurada para bloquear.', 'info');
+        return;
+      }
       lockApp();
       closeSidebar();
     });
 
     // Change PIN button
     document.getElementById('btnChangePin').addEventListener('click', () => {
+      if (localStorage.getItem(PIN_DISABLED_KEY) === 'true' || !getStoredPinHash()) {
+        showToast('Ative a senha primeiro para poder alterá-la.', 'info');
+        return;
+      }
       pinInput = '';
       pinMode = 'change_old';
       setLockSubtitle('Digite sua senha atual');
       hideLockError();
       updatePinDots();
+      const lockScreen = document.getElementById('lockScreen');
       lockScreen.classList.remove('hidden', 'unlocked');
       lucide.createIcons({ nodes: [lockScreen] });
       closeSidebar();
@@ -1632,7 +1641,6 @@
         lucide.createIcons({ nodes: [lockScreen] });
         showToast('Crie uma nova senha para ativar a proteção.', 'info');
       } else {
-        if (!confirm('Desativar a senha remove a proteção do app. Confirma?')) return;
         localStorage.setItem(PIN_DISABLED_KEY, 'true');
         showToast('Senha desativada. O app abrirá sem senha.', 'info');
       }
