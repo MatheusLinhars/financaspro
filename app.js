@@ -743,7 +743,32 @@
   btnAddMeta.addEventListener('click', () => {
     metaEditId.value = '';
     metaForm.reset();
+    
+    // Refresh credit card options for Fatura metas
+    const cartaoSelect = document.getElementById('metaCartao');
+    cartaoSelect.innerHTML = '<option value="todos">Todos os Cartões</option>';
+    state.creditCards.forEach(c => {
+      cartaoSelect.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
+    });
+
+    document.getElementById('metaCartaoGroup').classList.add('hidden');
+    document.getElementById('metaAtualGroup').classList.remove('hidden');
+    document.getElementById('metaAtual').required = true;
+
     formMeta.classList.remove('hidden');
+  });
+
+  document.getElementById('metaTipo').addEventListener('change', (e) => {
+    const isFatura = e.target.value === 'fatura';
+    if (isFatura) {
+      document.getElementById('metaCartaoGroup').classList.remove('hidden');
+      document.getElementById('metaAtualGroup').classList.add('hidden');
+      document.getElementById('metaAtual').required = false;
+    } else {
+      document.getElementById('metaCartaoGroup').classList.add('hidden');
+      document.getElementById('metaAtualGroup').classList.remove('hidden');
+      document.getElementById('metaAtual').required = true;
+    }
   });
 
   btnCancelMeta.addEventListener('click', () => {
@@ -753,12 +778,16 @@
 
   metaForm.addEventListener('submit', (e) => {
     e.preventDefault();
+    const isFatura = document.getElementById('metaTipo').value === 'fatura';
+    
     const data = {
       id: metaEditId.value || generateId(),
+      tipo: document.getElementById('metaTipo').value,
       nome: document.getElementById('metaNome').value.trim(),
       alvo: parseFloat(document.getElementById('metaAlvo').value),
-      atual: parseFloat(document.getElementById('metaAtual').value),
+      atual: isFatura ? 0 : parseFloat(document.getElementById('metaAtual').value),
       icone: document.getElementById('metaIcone').value,
+      cartao: isFatura ? document.getElementById('metaCartao').value : null,
     };
 
     if (metaEditId.value) {
@@ -790,8 +819,33 @@
     grid.innerHTML = '';
 
     state.metas.forEach(m => {
-      const pct = Math.min(100, (m.atual / m.alvo) * 100);
-      const isCompleted = pct >= 100;
+      let atual = m.atual;
+      let isFatura = m.tipo === 'fatura';
+      
+      if (isFatura) {
+        let spent = 0;
+        state.despesas.forEach(d => {
+          if (isInMonth(d.data, currentMonth, currentYear)) {
+            const isCC = state.creditCards.some(c => c.nome === d.formaPagamento);
+            if (isCC && (m.cartao === 'todos' || d.formaPagamento === m.cartao)) {
+              spent += d.valor;
+            }
+          }
+        });
+        atual = spent;
+      }
+
+      const pct = Math.min(100, (atual / m.alvo) * 100);
+      const isCompleted = isFatura ? false : pct >= 100;
+      const limitReached = isFatura && pct >= 100;
+      
+      let progressColor = '';
+      if (isFatura) {
+        if (pct >= 90) progressColor = 'background: #ef4444;'; // Red
+        else if (pct >= 70) progressColor = 'background: #f59e0b;'; // Yellow
+        else progressColor = 'background: #10b981;'; // Green
+      }
+
       const card = document.createElement('div');
       card.className = 'goal-card';
       card.innerHTML = `
@@ -801,19 +855,24 @@
             <span class="goal-name">${m.nome}</span>
           </div>
           <div class="goal-header-actions">
-            <button class="btn-icon deposit" data-id="${m.id}" title="Depositar"><i data-lucide="plus-circle"></i></button>
+            ${isFatura ? '' : `<button class="btn-icon deposit" data-id="${m.id}" title="Depositar"><i data-lucide="plus-circle"></i></button>`}
             <button class="btn-icon edit" data-id="${m.id}" title="Editar"><i data-lucide="pencil"></i></button>
             <button class="btn-icon delete" data-id="${m.id}" title="Excluir"><i data-lucide="trash-2"></i></button>
           </div>
         </div>
         <div class="goal-amounts">
-          <span class="goal-current">${formatCurrency(m.atual)}</span>
-          <span class="goal-target">de ${formatCurrency(m.alvo)}</span>
+          <span class="goal-current" style="${limitReached ? 'color: #f87171;' : ''}">${formatCurrency(atual)}</span>
+          <span class="goal-target">${isFatura ? 'Limite de ' : 'de '}${formatCurrency(m.alvo)}</span>
         </div>
         <div class="goal-progress-bar">
-          <div class="goal-progress-fill ${isCompleted ? 'completed' : ''}" style="width: ${pct}%"></div>
+          <div class="goal-progress-fill ${isCompleted ? 'completed' : ''}" style="width: ${pct}%; ${progressColor}"></div>
         </div>
-        <div class="goal-percentage ${isCompleted ? 'completed' : ''}">${pct.toFixed(1)}% ${isCompleted ? '✓ Concluída!' : ''}</div>
+        <div class="goal-percentage ${isCompleted ? 'completed' : ''} ${limitReached ? 'value-negative' : ''}">
+          ${pct.toFixed(1)}% 
+          ${isCompleted ? '✓ Concluída!' : ''}
+          ${limitReached ? '⚠️ Limite ultrapassado!' : ''}
+          ${isFatura && !limitReached ? `<span style="float:right">Livre: ${formatCurrency(m.alvo - atual)}</span>` : ''}
+        </div>
       `;
       grid.appendChild(card);
     });
@@ -827,6 +886,38 @@
     grid.querySelectorAll('.delete').forEach(btn => {
       btn.addEventListener('click', () => deleteMeta(btn.dataset.id));
     });
+
+  function editMeta(id) {
+    const m = state.metas.find(x => x.id === id);
+    if (!m) return;
+    
+    metaEditId.value = m.id;
+    document.getElementById('metaTipo').value = m.tipo || 'economia';
+    
+    // Refresh credit card options
+    const cartaoSelect = document.getElementById('metaCartao');
+    cartaoSelect.innerHTML = '<option value="todos">Todos os Cartões</option>';
+    state.creditCards.forEach(c => {
+      cartaoSelect.innerHTML += `<option value="${c.nome}">${c.nome}</option>`;
+    });
+
+    document.getElementById('metaNome').value = m.nome;
+    document.getElementById('metaAlvo').value = m.alvo;
+    if (m.tipo === 'fatura') {
+      document.getElementById('metaCartaoGroup').classList.remove('hidden');
+      document.getElementById('metaAtualGroup').classList.add('hidden');
+      document.getElementById('metaAtual').required = false;
+      document.getElementById('metaAtual').value = '';
+      if (m.cartao) document.getElementById('metaCartao').value = m.cartao;
+    } else {
+      document.getElementById('metaCartaoGroup').classList.add('hidden');
+      document.getElementById('metaAtualGroup').classList.remove('hidden');
+      document.getElementById('metaAtual').required = true;
+      document.getElementById('metaAtual').value = m.atual;
+    }
+    document.getElementById('metaIcone').value = m.icone;
+    formMeta.classList.remove('hidden');
+  }
 
     lucide.createIcons({ nodes: [grid] });
   }
@@ -1461,6 +1552,27 @@
           updatePinDots();
         }
         break;
+
+      case 'confirm_disable':
+        const storedHash = getStoredPinHash();
+        if (hash === storedHash) {
+          localStorage.setItem(PIN_DISABLED_KEY, 'true');
+          const label = document.getElementById('togglePinLabel');
+          const btn = document.getElementById('btnTogglePin');
+          if (label) label.textContent = 'Ativar Senha';
+          if (btn) {
+            btn.querySelector('i').setAttribute('data-lucide', 'shield-check');
+            lucide.createIcons({ nodes: [btn] });
+          }
+          showToast('Senha desativada.', 'info');
+          unlockApp();
+        } else {
+          showLockError('Senha incorreta.');
+          shakePin();
+          pinInput = '';
+          updatePinDots();
+        }
+        break;
     }
   }
 
@@ -1545,23 +1657,29 @@
 
   function updateSidebarTitle() {
     const titleEl = document.getElementById('sidebarAppTitle');
-    if (!titleEl) return;
+    const lockTitleEl = document.getElementById('lockAppTitle');
+    
+    let text = 'Core Finance';
     if (state.perfil && state.perfil.nome) {
-      const nomeFull = `${state.perfil.nome} ${state.perfil.sobrenome || ''}`.trim();
-      titleEl.textContent = nomeFull;
-    } else {
-      titleEl.textContent = 'Core Finance';
+      text = `${state.perfil.nome} ${state.perfil.sobrenome || ''}`.trim();
     }
 
-    // Auto-shrink logic to prevent text from overflowing or wrapping
-    titleEl.style.fontSize = '1.15rem';
-    requestAnimationFrame(() => {
-      let size = 1.15;
-      while (titleEl.scrollWidth > titleEl.clientWidth && size > 0.7) {
-        size -= 0.05;
-        titleEl.style.fontSize = size + 'rem';
-      }
-    });
+    if (titleEl) {
+      titleEl.textContent = text;
+      // Auto-shrink logic
+      titleEl.style.fontSize = '1.15rem';
+      requestAnimationFrame(() => {
+        let size = 1.15;
+        while (titleEl.scrollWidth > titleEl.clientWidth && size > 0.7) {
+          size -= 0.05;
+          titleEl.style.fontSize = size + 'rem';
+        }
+      });
+    }
+
+    if (lockTitleEl) {
+      lockTitleEl.textContent = text;
+    }
   }
 
   // ─── CONFIGURAÇÕES ───
@@ -1628,8 +1746,13 @@
         lucide.createIcons({ nodes: [lockScreen] });
         showToast('Crie uma nova senha para ativar a proteção.', 'info');
       } else {
-        localStorage.setItem(PIN_DISABLED_KEY, 'true');
-        showToast('Senha desativada. O app abrirá sem senha.', 'info');
+        pinInput = '';
+        pinMode = 'confirm_disable';
+        setLockSubtitle('Digite sua senha atual para desativar');
+        hideLockError();
+        updatePinDots();
+        lockScreen.classList.remove('hidden', 'unlocked');
+        lucide.createIcons({ nodes: [lockScreen] });
       }
       
       const isNowDisabled = localStorage.getItem(PIN_DISABLED_KEY) === 'true';
