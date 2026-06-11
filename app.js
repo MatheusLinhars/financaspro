@@ -1203,17 +1203,20 @@
     });
   }
 
-  // ─── HISTÓRICO 6 MESES (DASHBOARD) ───
+  // ─── HISTÓRICO (DASHBOARD) ───
   function renderHistoricoDashboard() {
     const canvas = document.getElementById('chartHistorico');
     if (!canvas) return;
+    
+    const filterEl = document.getElementById('histFilter');
+    const monthsToShow = filterEl ? parseInt(filterEl.value) : 6;
     
     const labels = [];
     const dataRec = [];
     const dataDesp = [];
     const dataBal = [];
     
-    for (let i = 5; i >= 0; i--) {
+    for (let i = monthsToShow - 1; i >= 0; i--) {
       let m = currentMonth - i;
       let y = currentYear;
       if (m < 0) { m += 12; y--; }
@@ -1307,7 +1310,9 @@
 
     const alertEl = document.getElementById('profileAlert');
     if (alertEl) {
-      if (!state.perfil || (!state.perfil.nome && !state.perfil.sobrenome && !state.perfil.email)) {
+      const p = state.perfil || {};
+      const hasInfo = (p.nome || '').trim() || (p.sobrenome || '').trim() || (p.email || '').trim();
+      if (!hasInfo) {
         alertEl.classList.remove('hidden');
       } else {
         alertEl.classList.add('hidden');
@@ -1657,6 +1662,11 @@
       btnGoToConfig.addEventListener('click', () => {
         navigateTo('configuracoes');
       });
+    }
+
+    const histFilter = document.getElementById('histFilter');
+    if (histFilter) {
+      histFilter.addEventListener('change', renderHistoricoDashboard);
     }
   }
 

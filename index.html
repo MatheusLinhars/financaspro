@@ -162,6 +162,29 @@
         </div>
       </div>
 
+      <div class="recent-section" style="margin-bottom: 24px;">
+        <div class="recent-card">
+          <h3 class="recent-title"><i data-lucide="clock"></i> Últimas Movimentações</h3>
+          <div class="recent-list" id="recentList">
+            <p class="empty-state">Nenhuma movimentação registrada.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card chart-full-width" style="margin-bottom: 24px;">
+        <div class="section-header" style="padding-bottom:0; margin-bottom:12px; border:none;">
+          <h3 class="chart-title"><i data-lucide="bar-chart-2"></i> Histórico</h3>
+          <select id="histFilter" class="btn-ghost" style="padding:4px 8px; font-size:0.85rem; background:var(--bg-card); color:var(--text-secondary); border:1px solid var(--border-color); border-radius:4px;">
+            <option value="3">3 Meses</option>
+            <option value="6" selected>6 Meses</option>
+            <option value="12">1 Ano</option>
+          </select>
+        </div>
+        <div class="chart-container" style="height: 300px;">
+          <canvas id="chartHistorico"></canvas>
+        </div>
+      </div>
+
       <div class="charts-grid">
         <div class="chart-card">
           <h3 class="chart-title"><i data-lucide="pie-chart"></i> Gastos por Categoria</h3>
@@ -176,22 +199,6 @@
             <canvas id="chartPagamento"></canvas>
           </div>
           <p class="chart-empty" id="chartPagamentoEmpty">Nenhuma despesa registrada este mês.</p>
-        </div>
-      </div>
-
-      <div class="chart-card chart-full-width" style="margin-bottom: 24px;">
-        <h3 class="chart-title"><i data-lucide="bar-chart-2"></i> Histórico (Últimos 6 Meses)</h3>
-        <div class="chart-container" style="height: 300px;">
-          <canvas id="chartHistorico"></canvas>
-        </div>
-      </div>
-
-      <div class="recent-section">
-        <div class="recent-card">
-          <h3 class="recent-title"><i data-lucide="clock"></i> Últimas Movimentações</h3>
-          <div class="recent-list" id="recentList">
-            <p class="empty-state">Nenhuma movimentação registrada.</p>
-          </div>
         </div>
       </div>
     </section>
