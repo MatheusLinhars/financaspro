@@ -103,10 +103,9 @@
     dashboard: 'Dashboard',
     receitas: 'Receitas',
     despesas: 'Despesas',
-    faturas: 'Faturas dos Cartões',
+    faturas: 'Faturas',
     investimentos: 'Investimentos',
     metas: 'Metas Financeiras',
-    comparar: 'Comparação de Meses',
   };
 
   function navigateTo(sectionId) {
