@@ -1307,17 +1307,6 @@
     if (activeNav) {
       pageTitle.textContent = sectionTitles[activeNav.dataset.section] || activeNav.dataset.section;
     }
-
-    const alertEl = document.getElementById('profileAlert');
-    if (alertEl) {
-      const p = state.perfil || {};
-      const hasInfo = (p.nome || '').trim() || (p.sobrenome || '').trim() || (p.email || '').trim();
-      if (!hasInfo) {
-        alertEl.classList.remove('hidden');
-      } else {
-        alertEl.classList.add('hidden');
-      }
-    }
   }
 
 
@@ -1657,13 +1646,6 @@
     refreshAll();
     lucide.createIcons();
     
-    const btnGoToConfig = document.getElementById('btnGoToConfig');
-    if (btnGoToConfig) {
-      btnGoToConfig.addEventListener('click', () => {
-        navigateTo('configuracoes');
-      });
-    }
-
     const histFilter = document.getElementById('histFilter');
     if (histFilter) {
       histFilter.addEventListener('change', renderHistoricoDashboard);
