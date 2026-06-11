@@ -42,7 +42,11 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        return { ...defaultState(), ...parsed };
+        const merged = { ...defaultState(), ...parsed };
+        if (parsed.perfil) {
+          merged.perfil = { ...defaultState().perfil, ...parsed.perfil };
+        }
+        return merged;
       }
     } catch (e) {
       console.error('Error loading state:', e);
@@ -265,7 +269,7 @@
     const empty = document.getElementById('receitasEmpty');
     const filtered = state.receitas
       .filter(r => isInMonth(r.data, currentMonth, currentYear))
-      .sort((a, b) => b.data.localeCompare(a.data));
+      .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
 
     body.innerHTML = '';
     if (filtered.length === 0) {
@@ -472,7 +476,7 @@
     const empty = document.getElementById('despesasEmpty');
     const filtered = state.despesas
       .filter(d => isInMonth(d.data, currentMonth, currentYear))
-      .sort((a, b) => b.data.localeCompare(a.data));
+      .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
 
     body.innerHTML = '';
     if (filtered.length === 0) {
@@ -653,7 +657,7 @@
     const body = document.getElementById('investBody');
     const empty = document.getElementById('investEmpty');
     const summaryDiv = document.getElementById('investSummary');
-    const sorted = [...state.investimentos].sort((a, b) => b.data.localeCompare(a.data));
+    const sorted = [...state.investimentos].sort((a, b) => (b.data || '').localeCompare(a.data || ''));
 
     body.innerHTML = '';
     if (sorted.length === 0) {
@@ -1192,7 +1196,7 @@
     const all = [
       ...receitas.map(r => ({ ...r, type: 'income' })),
       ...despesas.map(d => ({ ...d, type: 'expense' })),
-    ].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 8);
+    ].sort((a, b) => (b.data || '').localeCompare(a.data || '')).slice(0, 8);
 
     if (all.length === 0) {
       container.innerHTML = '<p class="empty-state">Nenhuma movimentação registrada.</p>';
@@ -1245,7 +1249,7 @@
       const key = `Crédito - ${card}`;
       cardData[card] = state.despesas
         .filter(d => d.pagamento === key)
-        .sort((a, b) => b.data.localeCompare(a.data));
+        .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
     });
 
     const hasAny = Object.values(cardData).some(arr => arr.length > 0);
@@ -1275,8 +1279,10 @@
       const cardEl = document.createElement('div');
       cardEl.className = 'fatura-card';
 
-      const monthsHtml = Object.keys(byMonth).sort((a, b) => b.localeCompare(a)).map(monthKey => {
+      const monthsHtml = Object.keys(byMonth).sort((a, b) => (b || '').localeCompare(a || '')).map(monthKey => {
+        if (!monthKey) return '';
         const [y, m] = monthKey.split('-').map(Number);
+        if (!y || !m) return '';
         const mlabel = new Date(y, m - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
         const monthTotal = byMonth[monthKey].reduce((s, d) => s + d.valor, 0);
         const rows = byMonth[monthKey].map(d => {
@@ -1408,15 +1414,18 @@
   }
 
   function refreshAll() {
-    renderDashboard();
-    renderReceitas();
-    renderDespesas();
-    renderFaturas();
-    renderInvestimentos();
-    renderMetas();
-    renderCreditCards();
-    renderHistoricoDashboard();
-    updateSidebarTitle();
+    const safeRun = (fn, name) => {
+      try { fn(); } catch(e) { console.error(`Error in ${name}:`, e); }
+    };
+    safeRun(renderDashboard, 'renderDashboard');
+    safeRun(renderReceitas, 'renderReceitas');
+    safeRun(renderDespesas, 'renderDespesas');
+    safeRun(renderFaturas, 'renderFaturas');
+    safeRun(renderInvestimentos, 'renderInvestimentos');
+    safeRun(renderMetas, 'renderMetas');
+    safeRun(renderCreditCards, 'renderCreditCards');
+    safeRun(renderHistoricoDashboard, 'renderHistoricoDashboard');
+    safeRun(updateSidebarTitle, 'updateSidebarTitle');
 
     const activeNav = document.querySelector('.nav-item.active');
     if (activeNav) {
