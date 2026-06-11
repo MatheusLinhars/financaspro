@@ -430,22 +430,28 @@
 
   function updatePagamentoOptions() {
     const currentVal = despesaPagamento.value;
-    despesaPagamento.innerHTML = `
-      <option value="">Selecione...</option>
-      <option value="">Selecione...</option>
-      <option value="PIX">PIX</option>
-      <option value="Boleto">Boleto</option>
-      <option value="Dinheiro">Dinheiro</option>
-      <option value="Débito">Débito</option>
-      <option value="Vale Refeição">Vale Refeição</option>
-    `;
-    state.creditCards.forEach(card => {
+    despesaPagamento.innerHTML = '';
+    
+    // 1. Cartões no topo
+    if (state.creditCards && state.creditCards.length > 0) {
+      state.creditCards.forEach(card => {
+        const opt = document.createElement('option');
+        opt.value = `Crédito - ${card.nome}`;
+        opt.textContent = `Crédito - ${card.nome}`;
+        despesaPagamento.appendChild(opt);
+      });
+    }
+
+    // 2. Outras opções fixas
+    const fixas = ["PIX", "Dinheiro", "Boleto", "Débito", "Vale Refeição"];
+    fixas.forEach(f => {
       const opt = document.createElement('option');
-      opt.value = `Crédito - ${card.nome}`;
-      opt.textContent = `Crédito - ${card.nome}`;
+      opt.value = f;
+      opt.textContent = f;
       despesaPagamento.appendChild(opt);
     });
     if (currentVal) despesaPagamento.value = currentVal;
+    else despesaPagamento.value = state.creditCards.length > 0 ? `Crédito - ${state.creditCards[0].nome}` : 'PIX';
 
     // Show/hide parcelas based on current value
     toggleParcelasGroup(despesaPagamento.value);
@@ -463,6 +469,17 @@
 
   despesaPagamento.addEventListener('change', () => {
     toggleParcelasGroup(despesaPagamento.value);
+  });
+
+  const despesaIsRecorrente = document.getElementById('despesaIsRecorrente');
+  const recorrenciaGroup = document.getElementById('recorrenciaGroup');
+  
+  despesaIsRecorrente.addEventListener('change', () => {
+    if (despesaIsRecorrente.checked) {
+      recorrenciaGroup.classList.remove('hidden');
+    } else {
+      recorrenciaGroup.classList.add('hidden');
+    }
   });
 
   const despesaCategoria = document.getElementById('despesaCategoria');
@@ -500,19 +517,22 @@
     const descricao = document.getElementById('despesaDescricao').value.trim();
     const categoria = document.getElementById('despesaCategoria').value;
     const subcategoria = document.getElementById('despesaSubcategoria').value;
+    
+    const isRecorrente = document.getElementById('despesaIsRecorrente').checked;
+    const frequencia = document.getElementById('despesaFrequencia').value;
+    const repeticoes = parseInt(document.getElementById('despesaRepeticoes').value) || 2;
 
-    // If editing, remove old entries (including group if parcelada)
+    // If editing, remove old entries (including group if parcelada or recorrente)
     if (despesaEditId.value) {
       const existing = state.despesas.find(d => d.id === despesaEditId.value);
       if (existing && existing.grupoId) {
-        // Remove all entries from this group
         state.despesas = state.despesas.filter(d => d.grupoId !== existing.grupoId);
       } else if (existing) {
         state.despesas = state.despesas.filter(d => d.id !== despesaEditId.value);
       }
     }
 
-    if (isParceled) {
+    if (isParceled && !isRecorrente) {
       // Split across months
       const grupoId = despesaEditId.value ? (state.despesas.find(d => d.id === despesaEditId.value)?.grupoId || generateId()) : generateId();
       const valorParcela = Math.round((totalValor / parcelas) * 100) / 100;
@@ -535,6 +555,36 @@
         });
       }
       showToast(`${parcelas}x de ${formatCurrency(valorParcela)} lançado nos próximos ${parcelas} meses!`);
+      
+    } else if (isRecorrente) {
+      // Recorrencia multiplas datas com mesmo valor integral
+      const grupoId = despesaEditId.value ? (state.despesas.find(d => d.id === despesaEditId.value)?.grupoId || generateId()) : generateId();
+      let currentDate = new Date(dataStr + 'T00:00:00');
+
+      for (let i = 0; i < repeticoes; i++) {
+        const parcelaDateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+        
+        state.despesas.push({
+          id: generateId(),
+          valor: totalValor,
+          descricao: descricao ? `${descricao} (${i + 1}/${repeticoes})` : '',
+          categoria,
+          subcategoria,
+          pagamento,
+          grupoId,
+          data: parcelaDateStr,
+        });
+
+        if (frequencia === 'Mensal') {
+          currentDate.setMonth(currentDate.getMonth() + 1);
+        } else if (frequencia === 'Quinzenal') {
+          currentDate.setDate(currentDate.getDate() + 15);
+        } else if (frequencia === 'Semanal') {
+          currentDate.setDate(currentDate.getDate() + 7);
+        }
+      }
+      showToast(`${repeticoes} lançamentos recorrentes gerados!`);
+
     } else {
       state.despesas.push({
         id: despesaEditId.value || generateId(),
@@ -554,6 +604,9 @@
     despesaForm.reset();
     document.getElementById('parcelasGroup').classList.add('hidden');
     subcategoriaGroup.classList.add('hidden');
+    if (document.getElementById('recorrenciaGroup')) {
+      document.getElementById('recorrenciaGroup').classList.add('hidden');
+    }
     refreshAll();
   });
 
@@ -638,11 +691,6 @@
       const grupo = state.despesas.filter(x => x.grupoId === d.grupoId);
       const futuras = grupo.filter(x => x.parcelaNum >= d.parcelaNum);
       const choice = confirm(`Esta é a parcela ${d.parcelaNum}/${d.parcelas}.\n\nClicar OK exclui esta e todas as próximas parcelas (${futuras.length}x).\nClicar Cancelar exclui apenas esta parcela.`);
-      if (choice) {
-        // Delete this and all future installments
-        state.despesas = state.despesas.filter(x => !(x.grupoId === d.grupoId && x.parcelaNum >= d.parcelaNum));
-        showToast(`${futuras.length} parcela(s) excluída(s).`, 'info');
-      } else {
         state.despesas = state.despesas.filter(x => x.id !== id);
         showToast('Parcela excluída.', 'info');
       }
@@ -656,37 +704,107 @@
     refreshAll();
   }
 
-  // ─── Credit Cards ───
-  const btnAddCard = document.getElementById('btnAddCard');
-  const newCardName = document.getElementById('newCardName');
+  // ─── Credit Cards (Novo Modal) ───
+  const btnOpenAddCardModal = document.getElementById('btnOpenAddCardModal');
+  const ccFormModal = document.getElementById('ccFormModal');
+  const ccFormModalClose = document.getElementById('ccFormModalClose');
+  const btnCancelCardForm = document.getElementById('btnCancelCardForm');
+  const cardForm = document.getElementById('cardForm');
+  const cardEditId = document.getElementById('cardEditId');
+  const btnDeleteCard = document.getElementById('btnDeleteCard');
 
-  btnAddCard.addEventListener('click', () => {
-    const name = newCardName.value.trim();
-    if (!name) {
-      showToast('Informe o nome do cartão.', 'error');
-      return;
-    }
-    if (state.creditCards.some(c => c.nome === name)) {
-      showToast('Cartão já cadastrado.', 'error');
-      return;
-    }
-    state.creditCards.push({
-      id: generateId(),
-      nome: name,
-      bandeira: '',
-      cor: '#c084fc',
-      ultimosDigitos: '0000',
-      limite: 2000,
-      diaVencimento: 10,
-      diaFechamento: 3,
-      dataCriacao: new Date().toISOString().split('T')[0]
+  if (btnOpenAddCardModal) {
+    btnOpenAddCardModal.addEventListener('click', () => {
+      cardEditId.value = '';
+      cardForm.reset();
+      document.getElementById('ccFormModalTitle').textContent = 'Adicionar Cartão';
+      btnDeleteCard.style.display = 'none';
+      ccFormModal.classList.remove('hidden');
     });
-    saveState();
-    newCardName.value = '';
-    renderCreditCards();
-    updatePagamentoOptions();
-    showToast(`Cartão "${name}" adicionado!`);
-  });
+  }
+
+  function closeCardModal() {
+    ccFormModal.classList.add('hidden');
+    cardForm.reset();
+  }
+
+  if (ccFormModalClose) ccFormModalClose.addEventListener('click', closeCardModal);
+  if (btnCancelCardForm) btnCancelCardForm.addEventListener('click', closeCardModal);
+  if (ccFormModal) {
+    ccFormModal.addEventListener('click', (e) => {
+      if (e.target === ccFormModal) closeCardModal();
+    });
+  }
+
+  if (cardForm) {
+    cardForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const nome = document.getElementById('cardNome').value.trim();
+      const bandeira = document.getElementById('cardBandeira').value.trim();
+      const ultimosDigitos = document.getElementById('cardDigitos').value.trim();
+      const limite = parseFloat(document.getElementById('cardLimite').value) || 0;
+      const diaFechamento = parseInt(document.getElementById('cardDiaFechamento').value) || 1;
+      const diaVencimento = parseInt(document.getElementById('cardDiaVencimento').value) || 1;
+      const cor = document.getElementById('cardCor').value;
+      
+      if (!nome) {
+        showToast('Informe o nome do cartão.', 'error');
+        return;
+      }
+      
+      if (cardEditId.value) {
+        // Edit
+        const cardIndex = state.creditCards.findIndex(c => c.id === cardEditId.value);
+        if (cardIndex > -1) {
+          const oldName = state.creditCards[cardIndex].nome;
+          state.creditCards[cardIndex] = {
+            ...state.creditCards[cardIndex],
+            nome, bandeira, ultimosDigitos, limite, diaFechamento, diaVencimento, cor
+          };
+          // Update transactions with new name if name changed
+          if (oldName !== nome) {
+            state.despesas.forEach(d => {
+              if (d.pagamento === `Crédito - ${oldName}`) {
+                d.pagamento = `Crédito - ${nome}`;
+              }
+            });
+          }
+          showToast('Cartão atualizado com sucesso!');
+        }
+      } else {
+        // Add
+        if (state.creditCards.some(c => c.nome.toLowerCase() === nome.toLowerCase())) {
+          showToast('Cartão com esse nome já cadastrado.', 'error');
+          return;
+        }
+        state.creditCards.push({
+          id: generateId(),
+          nome, bandeira, ultimosDigitos, limite, diaFechamento, diaVencimento, cor,
+          dataCriacao: new Date().toISOString().split('T')[0]
+        });
+        showToast('Cartão adicionado com sucesso!');
+      }
+      
+      saveState();
+      closeCardModal();
+      refreshAll();
+    });
+  }
+
+  if (btnDeleteCard) {
+    btnDeleteCard.addEventListener('click', () => {
+      const id = cardEditId.value;
+      if (!id) return;
+      if (!confirm('Deseja realmente excluir este cartão? Isso NÃO apagará as compras já feitas nele, mas ele não aparecerá mais na lista de cartões.')) return;
+      
+      state.creditCards = state.creditCards.filter(c => c.id !== id);
+      saveState();
+      closeCardModal();
+      refreshAll();
+      showToast('Cartão removido.', 'info');
+    });
+  }
 
   function renderCreditCards() {
     const container = document.getElementById('creditCardsList');
@@ -694,16 +812,11 @@
     state.creditCards.forEach(card => {
       const chip = document.createElement('span');
       chip.className = 'card-chip';
-      chip.innerHTML = `💳 ${card.nome} <button class="card-remove" data-id="${card.id}"><i data-lucide="x"></i></button>`;
+      chip.innerHTML = `💳 ${card.nome} <button class="card-edit" data-id="${card.id}"><i data-lucide="edit-2"></i></button>`;
       container.appendChild(chip);
     });
-    container.querySelectorAll('.card-remove').forEach(btn => {
+    container.querySelectorAll('.card-edit').forEach(btn => {
       btn.addEventListener('click', () => {
-        if (!confirm('Remover este cartão?')) return;
-        state.creditCards = state.creditCards.filter(c => c.id !== btn.dataset.id);
-        saveState();
-        renderCreditCards();
-        updatePagamentoOptions();
         renderCartoes();
         showToast('Cartão removido.', 'info');
       });
@@ -1469,7 +1582,36 @@
     });
   }
 
+  let currentCardViewing = null;
+  const btnEditCard = document.getElementById('btnEditCard');
+
+  if (btnEditCard) {
+    btnEditCard.addEventListener('click', () => {
+      if (!currentCardViewing) return;
+      
+      // Close details modal
+      ccDetailsModal.classList.add('hidden');
+      
+      // Populate form
+      document.getElementById('cardEditId').value = currentCardViewing.id;
+      document.getElementById('cardNome').value = currentCardViewing.nome;
+      document.getElementById('cardBandeira').value = currentCardViewing.bandeira || '';
+      document.getElementById('cardDigitos').value = currentCardViewing.ultimosDigitos || '';
+      document.getElementById('cardLimite').value = currentCardViewing.limite;
+      document.getElementById('cardDiaFechamento').value = currentCardViewing.diaFechamento;
+      document.getElementById('cardDiaVencimento').value = currentCardViewing.diaVencimento;
+      document.getElementById('cardCor').value = currentCardViewing.cor || '#c084fc';
+      
+      document.getElementById('ccFormModalTitle').textContent = 'Editar Cartão';
+      document.getElementById('btnDeleteCard').style.display = 'block';
+      
+      // Open form modal
+      document.getElementById('ccFormModal').classList.remove('hidden');
+    });
+  }
+
   function openCardDetailsModal(card, faturaAtual, comprasCount, limiteDisp) {
+    currentCardViewing = card;
     document.getElementById('ccModalTitle').innerHTML = `<i data-lucide="credit-card" style="color: ${card.cor}"></i> ${card.nome}`;
     document.getElementById('ccModalFaturaAtual').textContent = formatCurrency(faturaAtual);
     document.getElementById('ccModalComprasCount').textContent = comprasCount;
