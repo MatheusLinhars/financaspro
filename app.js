@@ -1581,11 +1581,9 @@
         const disableStoredHash = getStoredPinHash();
         if (hash === disableStoredHash) {
           localStorage.setItem(PIN_DISABLED_KEY, 'true');
-          const label = document.getElementById('togglePinLabel');
           const btn = document.getElementById('btnTogglePin');
-          if (label) label.textContent = 'Ativar Senha';
           if (btn) {
-            btn.querySelector('i').setAttribute('data-lucide', 'shield-check');
+            btn.innerHTML = `<i data-lucide="shield-check"></i> <span id="togglePinLabel">Ativar Senha</span>`;
             lucide.createIcons({ nodes: [btn] });
           }
           showToast('Senha desativada.', 'info');
@@ -1611,14 +1609,11 @@
     // Update toggle button label
     function updateToggleBtnLabel() {
       const isDisabled = localStorage.getItem(PIN_DISABLED_KEY) === 'true';
-      const label = document.getElementById('togglePinLabel');
       const btn = document.getElementById('btnTogglePin');
       if (isDisabled) {
-        label.textContent = 'Ativar Senha';
-        btn.querySelector('i').setAttribute('data-lucide', 'shield-check');
+        btn.innerHTML = `<i data-lucide="shield-check"></i> <span id="togglePinLabel">Ativar Senha</span>`;
       } else {
-        label.textContent = 'Desativar';
-        btn.querySelector('i').setAttribute('data-lucide', 'shield-off');
+        btn.innerHTML = `<i data-lucide="shield-off"></i> <span id="togglePinLabel">Desativar Senha</span>`;
       }
       lucide.createIcons({ nodes: [btn] });
     }
@@ -1783,14 +1778,11 @@
       }
       
       const isNowDisabled = localStorage.getItem(PIN_DISABLED_KEY) === 'true';
-      const label = document.getElementById('togglePinLabel');
       const btn = document.getElementById('btnTogglePin');
       if (isNowDisabled) {
-        label.textContent = 'Ativar Senha';
-        btn.querySelector('i').setAttribute('data-lucide', 'shield-check');
+        btn.innerHTML = `<i data-lucide="shield-check"></i> <span id="togglePinLabel">Ativar Senha</span>`;
       } else {
-        label.textContent = 'Desativar Senha';
-        btn.querySelector('i').setAttribute('data-lucide', 'shield-off');
+        btn.innerHTML = `<i data-lucide="shield-off"></i> <span id="togglePinLabel">Desativar Senha</span>`;
       }
       lucide.createIcons({ nodes: [btn] });
     });
