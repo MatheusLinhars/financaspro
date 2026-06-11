@@ -1978,3 +1978,28 @@ body {
 
 .compare-chart-wrap { margin-top: 8px; }
 
+/* ==================== CONFIGURAÇÕES ==================== */
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.config-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.security-actions-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.nav-item-config {
+  margin-top: auto;
+  border-top: 1px solid var(--border-light);
+  padding-top: 16px;
+}
+

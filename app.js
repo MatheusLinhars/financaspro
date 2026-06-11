@@ -33,6 +33,7 @@
       metas: [],
       customFontes: [],
       creditCards: [],
+      perfil: { nome: '', sobrenome: '', idade: '', profissao: '', email: '' }
     };
   }
 
@@ -106,6 +107,7 @@
     faturas: 'Faturas',
     investimentos: 'Investimentos',
     metas: 'Metas Financeiras',
+    configuracoes: 'Configurações',
   };
 
   function navigateTo(sectionId) {
@@ -1598,7 +1600,32 @@
       }
     });
 
-    // Lock button
+  }
+
+  // ─── CONFIGURAÇÕES ───
+  function initConfiguracoes() {
+    // 1. Perfil
+    const inputs = ['cfgNome', 'cfgSobrenome', 'cfgIdade', 'cfgProfissao', 'cfgEmail'];
+    if (!state.perfil) state.perfil = { nome: '', sobrenome: '', idade: '', profissao: '', email: '' };
+    
+    // Load existing
+    inputs.forEach(id => {
+      const key = id.replace('cfg', '').toLowerCase();
+      document.getElementById(id).value = state.perfil[key] || '';
+    });
+    
+    // Save on change
+    inputs.forEach(id => {
+      document.getElementById(id).addEventListener('input', (e) => {
+        const key = id.replace('cfg', '').toLowerCase();
+        state.perfil[key] = e.target.value;
+        saveState();
+      });
+    });
+
+    // 2. Segurança Actions
+    const lockScreen = document.getElementById('lockScreen');
+    
     document.getElementById('btnLockApp').addEventListener('click', () => {
       if (localStorage.getItem(PIN_DISABLED_KEY) === 'true' || !getStoredPinHash()) {
         showToast('Nenhuma senha configurada para bloquear.', 'info');
@@ -1606,9 +1633,9 @@
       }
       lockApp();
       closeSidebar();
+      navigateTo('dashboard');
     });
 
-    // Change PIN button
     document.getElementById('btnChangePin').addEventListener('click', () => {
       if (localStorage.getItem(PIN_DISABLED_KEY) === 'true' || !getStoredPinHash()) {
         showToast('Ative a senha primeiro para poder alterá-la.', 'info');
@@ -1619,16 +1646,14 @@
       setLockSubtitle('Digite sua senha atual');
       hideLockError();
       updatePinDots();
-      const lockScreen = document.getElementById('lockScreen');
       lockScreen.classList.remove('hidden', 'unlocked');
       lucide.createIcons({ nodes: [lockScreen] });
       closeSidebar();
     });
-    // Toggle PIN button
+
     document.getElementById('btnTogglePin').addEventListener('click', () => {
       const isDisabled = localStorage.getItem(PIN_DISABLED_KEY) === 'true';
       if (isDisabled) {
-        // Re-enable: go to setup flow
         localStorage.removeItem(PIN_DISABLED_KEY);
         localStorage.removeItem(PIN_KEY);
         pinInput = '';
@@ -1643,7 +1668,7 @@
         localStorage.setItem(PIN_DISABLED_KEY, 'true');
         showToast('Senha desativada. O app abrirá sem senha.', 'info');
       }
-      // Update label
+      
       const isNowDisabled = localStorage.getItem(PIN_DISABLED_KEY) === 'true';
       const label = document.getElementById('togglePinLabel');
       const btn = document.getElementById('btnTogglePin');
@@ -1651,18 +1676,17 @@
         label.textContent = 'Ativar Senha';
         btn.querySelector('i').setAttribute('data-lucide', 'shield-check');
       } else {
-        label.textContent = 'Desativar';
+        label.textContent = 'Desativar Senha';
         btn.querySelector('i').setAttribute('data-lucide', 'shield-off');
       }
       lucide.createIcons({ nodes: [btn] });
-      closeSidebar();
     });
   }
 
   // ─── Initialize ───
   function init() {
     initLockScreen();
-    initComparar();
+    initConfiguracoes();
     updateMonthDisplay();
     updateReceitaFonteOptions();
     updatePagamentoOptions();
