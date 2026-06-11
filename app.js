@@ -1540,10 +1540,19 @@
     } else if (!storedHash) {
       pinMode = 'setup';
       setLockSubtitle('Crie uma senha de 4 dígitos');
+      document.getElementById('btnSkipPin').classList.remove('hidden');
     } else {
       pinMode = 'login';
       setLockSubtitle('Digite sua senha para acessar');
+      document.getElementById('btnSkipPin').classList.add('hidden');
     }
+
+    document.getElementById('btnSkipPin').addEventListener('click', () => {
+      localStorage.setItem(PIN_DISABLED_KEY, 'true');
+      updateToggleBtnLabel();
+      showToast('Acesso sem senha ativado.', 'info');
+      unlockApp();
+    });
 
     // Pin pad clicks
     document.querySelectorAll('.pin-key').forEach(btn => {

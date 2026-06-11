@@ -1443,6 +1443,22 @@ body {
   50% { box-shadow: 0 0 40px rgba(34, 197, 94, 0.4); }
 }
 
+.btn-skip-pin {
+  margin-top: 24px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color var(--transition-fast);
+}
+
+.btn-skip-pin:hover {
+  color: var(--accent-green);
+}
+
 .lock-logo-icon .icon-logo {
   width: 30px;
   height: 30px;
